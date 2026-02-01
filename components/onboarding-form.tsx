@@ -110,8 +110,8 @@ export function OnboardingForm({
     setIsLoading(true);
 
     try {
-      // Create project with prompts
-      createProject(websiteUrl, selectedPrompts);
+      // Create project with prompts via API
+      await createProject(websiteUrl, selectedPrompts);
 
       toast.success("Project created! Starting analysis...");
 
@@ -123,7 +123,11 @@ export function OnboardingForm({
         startAnalysis();
       }, 500);
     } catch (error) {
-      toast.error("Failed to create project. Please try again.");
+      const apiError = error as { error?: { message?: string } };
+      const message =
+        apiError?.error?.message ||
+        "Failed to create project. Please try again.";
+      toast.error(message);
       setIsLoading(false);
     }
   };

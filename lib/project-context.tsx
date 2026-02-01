@@ -8,6 +8,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { api, getAccessToken } from "./api-client";
+import type { ProjectResponseDto } from "./Api";
 
 // Types
 export interface Prompt {
@@ -19,6 +21,7 @@ export interface Prompt {
 }
 
 export interface Project {
+  id: string;
   websiteUrl: string;
   prompts: Prompt[];
   createdAt: string;
@@ -27,9 +30,13 @@ export interface Project {
 interface ProjectContextType {
   project: Project | null;
   isLoading: boolean;
-  createProject: (websiteUrl: string, prompts: string[]) => void;
+  createProject: (websiteUrl: string, prompts: string[]) => Promise<void>;
   startAnalysis: () => void;
   clearProject: () => void;
+  // New: API projects
+  activeProject: ProjectResponseDto | null;
+  projects: ProjectResponseDto[];
+  loadProjects: () => Promise<void>;
 }
 
 const PROJECT_STORAGE_KEY = "betracked_project";
@@ -39,20 +46,49 @@ const ProjectContext = createContext<ProjectContextType | null>(null);
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // New: API projects state
+  const [projects, setProjects] = useState<ProjectResponseDto[]>([]);
+  const [activeProject, setActiveProject] = useState<ProjectResponseDto | null>(
+    null
+  );
+
+  // Load projects from API (only when user has access token)
+  const loadProjects = useCallback(async () => {
+    if (!getAccessToken()) return;
+    try {
+      const response = await api.api.projectsControllerGetMyProjects();
+      const fetchedProjects = response.data;
+      setProjects(fetchedProjects);
+
+      // Set first project as active if available
+      if (fetchedProjects.length > 0) {
+        setActiveProject(fetchedProjects[0]);
+      }
+    } catch (error) {
+      console.error("Failed to load projects from API:", error);
+    }
+  }, []);
 
   // Load project from localStorage on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(PROJECT_STORAGE_KEY);
-      if (stored) {
-        setProject(JSON.parse(stored));
+    const initializeProjects = async () => {
+      try {
+        const stored = localStorage.getItem(PROJECT_STORAGE_KEY);
+        if (stored) {
+          setProject(JSON.parse(stored));
+        }
+
+        // Load projects from API
+        await loadProjects();
+      } catch (error) {
+        console.error("Failed to load project from localStorage:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to load project from localStorage:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    };
+
+    initializeProjects();
+  }, [loadProjects]);
 
   // Save project to localStorage whenever it changes
   useEffect(() => {
@@ -65,20 +101,38 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [project, isLoading]);
 
-  // Create a new project
-  const createProject = useCallback((websiteUrl: string, promptTexts: string[]) => {
-    const newProject: Project = {
-      websiteUrl,
-      prompts: promptTexts.map((text) => ({
-        id: crypto.randomUUID(),
-        text,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      })),
-      createdAt: new Date().toISOString(),
-    };
-    setProject(newProject);
-  }, []);
+  // Create a new project via API
+  const createProject = useCallback(
+    async (websiteUrl: string, promptTexts: string[]) => {
+      try {
+        // Call the onboarding API endpoint
+        const response = await api.api.onboardingControllerCreateProject({
+          websiteUrl,
+        });
+
+        // Create project with prompts (prompts are placeholder for now)
+        const newProject: Project = {
+          id: response.data.project.id,
+          websiteUrl: response.data.project.websiteUrl,
+          prompts: promptTexts.map((text) => ({
+            id: crypto.randomUUID(),
+            text,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+          })),
+          createdAt: response.data.project.createdAt,
+        };
+        setProject(newProject);
+
+        // Reload projects list
+        await loadProjects();
+      } catch (error) {
+        console.error("Failed to create project:", error);
+        throw error;
+      }
+    },
+    [loadProjects]
+  );
 
   // Start analysis - simulate progress
   const startAnalysis = useCallback(() => {
@@ -128,6 +182,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     createProject,
     startAnalysis,
     clearProject,
+    // New: API projects
+    activeProject,
+    projects,
+    loadProjects,
   };
 
   return (

@@ -30,6 +30,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useProject } from "@/lib/project-context";
 
 const data = {
   user: {
@@ -149,6 +150,8 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { activeProject } = useProject();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -160,7 +163,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <FileTextIcon className="!size-5" />
-                <span className="text-base font-semibold">betracked.</span>
+                <span className="text-base font-semibold">
+                  {activeProject?.name}
+                </span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

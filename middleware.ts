@@ -13,6 +13,9 @@ const publicRoutes = [
 // Routes that require authentication but are exempt from project check
 const authOnlyRoutes = ["/onboarding"];
 
+// Public routes where authenticated users may stay (e.g. completing email verification or password reset from email link)
+const publicRoutesAllowWhenAuthenticated = ["/auth/verify-email", "/auth/reset-password"];
+
 // Routes that should be skipped by middleware
 const skipRoutes = ["/api", "/_next", "/favicon.ico"];
 
@@ -53,8 +56,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users away from auth pages
-  if (isPublicRoute && hasToken) {
+  // Redirect authenticated users away from auth pages, unless they're on verify-email or reset-password (flow may require token from email)
+  const canStayWhenAuthenticated = publicRoutesAllowWhenAuthenticated.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+  if (isPublicRoute && hasToken && !canStayWhenAuthenticated) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
