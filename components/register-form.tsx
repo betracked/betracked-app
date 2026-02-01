@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -20,23 +20,30 @@ import {
 import { Input } from "@/components/ui/input";
 
 // Validation schema
-const loginSchema = z.object({
+const registerSchema = z.object({
+  firstName: z
+    .string()
+    .min(1, "First name is required")
+    .max(100, "First name is too long"),
+  lastName: z
+    .string()
+    .min(1, "Last name is required")
+    .max(100, "Last name is too long"),
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
-export function LoginForm({
+export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { register } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<Partial<LoginFormData>>({});
+  const [errors, setErrors] = useState<Partial<RegisterFormData>>({});
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,16 +51,18 @@ export function LoginForm({
 
     const formData = new FormData(e.currentTarget);
     const data = {
+      firstName: formData.get("firstName") as string,
+      lastName: formData.get("lastName") as string,
       email: formData.get("email") as string,
       password: formData.get("password") as string,
     };
 
     // Validate form
-    const result = loginSchema.safeParse(data);
+    const result = registerSchema.safeParse(data);
     if (!result.success) {
-      const fieldErrors: Partial<LoginFormData> = {};
+      const fieldErrors: Partial<RegisterFormData> = {};
       result.error.issues.forEach((issue) => {
-        const field = issue.path[0] as keyof LoginFormData;
+        const field = issue.path[0] as keyof RegisterFormData;
         fieldErrors[field] = issue.message;
       });
       setErrors(fieldErrors);
@@ -63,16 +72,13 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      const response = await login(data);
+      const response = await register(data);
 
-      toast.success("Welcome back!");
+      toast.success("Account created! Please check your email to verify.");
 
-      // Redirect to original destination or home/onboarding
-      const redirect = searchParams.get("redirect");
+      // Redirect to onboarding or home
       if (response.needsOnboarding) {
         router.push("/onboarding");
-      } else if (redirect) {
-        router.push(redirect);
       } else {
         router.push("/");
       }
@@ -81,7 +87,7 @@ export function LoginForm({
       const apiError = error as { error?: { message?: string } };
       const message =
         apiError?.error?.message ||
-        "Invalid email or password. Please try again.";
+        "Failed to create account. Please try again.";
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -96,10 +102,38 @@ export function LoginForm({
     >
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Login to your account</h1>
+          <h1 className="text-2xl font-bold">Create an account</h1>
           <p className="text-muted-foreground text-sm text-balance">
-            Enter your email below to login to your account
+            Enter your details below to create your account
           </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field data-invalid={!!errors.firstName}>
+            <FieldLabel htmlFor="firstName">First name</FieldLabel>
+            <Input
+              id="firstName"
+              name="firstName"
+              type="text"
+              placeholder="John"
+              autoComplete="given-name"
+              disabled={isLoading}
+              required
+            />
+            {errors.firstName && <FieldError>{errors.firstName}</FieldError>}
+          </Field>
+          <Field data-invalid={!!errors.lastName}>
+            <FieldLabel htmlFor="lastName">Last name</FieldLabel>
+            <Input
+              id="lastName"
+              name="lastName"
+              type="text"
+              placeholder="Doe"
+              autoComplete="family-name"
+              disabled={isLoading}
+              required
+            />
+            {errors.lastName && <FieldError>{errors.lastName}</FieldError>}
+          </Field>
         </div>
         <Field data-invalid={!!errors.email}>
           <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -115,28 +149,23 @@ export function LoginForm({
           {errors.email && <FieldError>{errors.email}</FieldError>}
         </Field>
         <Field data-invalid={!!errors.password}>
-          <div className="flex items-center">
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Link
-              href="/auth/forgot-password"
-              className="ml-auto text-sm underline-offset-4 hover:underline"
-            >
-              Forgot your password?
-            </Link>
-          </div>
+          <FieldLabel htmlFor="password">Password</FieldLabel>
           <Input
             id="password"
             name="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             disabled={isLoading}
             required
           />
           {errors.password && <FieldError>{errors.password}</FieldError>}
+          <FieldDescription>
+            Must be at least 8 characters long
+          </FieldDescription>
         </Field>
         <Field>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Login"}
+            {isLoading ? "Creating account..." : "Create account"}
           </Button>
         </Field>
         <FieldSeparator>Or continue with</FieldSeparator>
@@ -148,15 +177,12 @@ export function LoginForm({
                 fill="currentColor"
               />
             </svg>
-            Login with GitHub
+            Sign up with GitHub
           </Button>
           <FieldDescription className="text-center">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/auth/register"
-              className="underline underline-offset-4"
-            >
-              Sign up
+            Already have an account?{" "}
+            <Link href="/auth/login" className="underline underline-offset-4">
+              Sign in
             </Link>
           </FieldDescription>
         </Field>

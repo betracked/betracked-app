@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { LoginForm } from "@/components/login-form";
+import { OnboardingForm } from "@/components/onboarding-form";
 import { GalleryVerticalEnd, Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+export default function OnboardingPage() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
@@ -16,7 +16,7 @@ export default function LoginPage() {
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-md">
             <Suspense
               fallback={
                 <div className="flex items-center justify-center">
@@ -24,7 +24,7 @@ export default function LoginPage() {
                 </div>
               }
             >
-              <LoginForm />
+              <OnboardingForm />
             </Suspense>
           </div>
         </div>
