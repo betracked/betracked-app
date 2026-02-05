@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
-import { X, Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, ArrowRight, ArrowLeft, Globe, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useProject } from "@/lib/project-context";
@@ -17,7 +17,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { OnboardingLoading } from "@/components/onboarding-loading";
+import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
 
 // Placeholder prompts (max 7 from backend)
 const PLACEHOLDER_PROMPTS = [
@@ -36,6 +37,7 @@ const urlSchema = z.object({
 });
 
 type OnboardingFormData = z.infer<typeof urlSchema>;
+type Step = "url" | "loading" | "prompts";
 
 export function OnboardingForm({
   className,
@@ -44,9 +46,9 @@ export function OnboardingForm({
   const router = useRouter();
   const { createProject, startAnalysis } = useProject();
 
-  const [step, setStep] = useState<"url" | "prompts">("url");
+  const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]);
+  const [prompts, setPrompts] = useState<{ text: string; selected: boolean; isCustom: boolean }[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<OnboardingFormData>>({});
@@ -57,8 +59,6 @@ export function OnboardingForm({
     setErrors({});
 
     const data = { websiteUrl };
-
-    // Validate URL
     const result = urlSchema.safeParse(data);
     if (!result.success) {
       const fieldErrors: Partial<OnboardingFormData> = {};
@@ -70,38 +70,62 @@ export function OnboardingForm({
       return;
     }
 
-    // Load suggested prompts (placeholder)
-    setSelectedPrompts(PLACEHOLDER_PROMPTS.slice(0, 5)); // Pre-select first 5
-    setStep("prompts");
+    // Move to loading transition
+    setStep("loading");
   };
 
-  // Toggle prompt selection
-  const togglePrompt = (prompt: string) => {
-    setSelectedPrompts((prev) =>
-      prev.includes(prompt)
-        ? prev.filter((p) => p !== prompt)
-        : [...prev, prompt]
+  // When loading animation completes
+  const handleLoadingComplete = useCallback(() => {
+    // Initialize prompts with first 5 pre-selected
+    setPrompts(
+      PLACEHOLDER_PROMPTS.map((text, i) => ({
+        text,
+        selected: i < 5,
+        isCustom: false,
+      }))
     );
+    setStep("prompts");
+  }, []);
+
+  // Toggle prompt selection
+  const togglePrompt = (index: number) => {
+    setPrompts((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, selected: !p.selected } : p))
+    );
+  };
+
+  // Edit prompt text
+  const editPrompt = (index: number, newText: string) => {
+    setPrompts((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, text: newText } : p))
+    );
+  };
+
+  // Remove prompt
+  const removePrompt = (index: number) => {
+    setPrompts((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Add custom prompt
   const addCustomPrompt = () => {
     if (!customPrompt.trim()) return;
-    if (selectedPrompts.includes(customPrompt.trim())) {
+    if (prompts.some((p) => p.text === customPrompt.trim())) {
       toast.error("This prompt already exists");
       return;
     }
-    setSelectedPrompts((prev) => [...prev, customPrompt.trim()]);
+    setPrompts((prev) => [
+      ...prev,
+      { text: customPrompt.trim(), selected: true, isCustom: true },
+    ]);
     setCustomPrompt("");
   };
 
-  // Remove prompt
-  const removePrompt = (prompt: string) => {
-    setSelectedPrompts((prev) => prev.filter((p) => p !== prompt));
-  };
+  // Selected count
+  const selectedCount = prompts.filter((p) => p.selected).length;
 
   // Handle final confirmation
   const handleConfirm = async () => {
+    const selectedPrompts = prompts.filter((p) => p.selected).map((p) => p.text);
     if (selectedPrompts.length === 0) {
       toast.error("Please select at least one prompt");
       return;
@@ -110,15 +134,9 @@ export function OnboardingForm({
     setIsLoading(true);
 
     try {
-      // Create project with prompts via API
       await createProject(websiteUrl, selectedPrompts);
-
       toast.success("Project created! Starting analysis...");
-
-      // Redirect to dashboard
       router.push("/");
-
-      // Start analysis after a short delay (to allow redirect)
       setTimeout(() => {
         startAnalysis();
       }, 500);
@@ -134,15 +152,51 @@ export function OnboardingForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
+      {/* Step indicator */}
+      <div className="flex items-center justify-center gap-2">
+        {["url", "loading", "prompts"].map((s, i) => {
+          const stepIndex = ["url", "loading", "prompts"].indexOf(step);
+          const isActive = i <= stepIndex;
+          return (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-2 rounded-full transition-all duration-500",
+                  isActive ? "bg-primary scale-100" : "bg-border scale-75"
+                )}
+              />
+              {i < 2 && (
+                <div
+                  className={cn(
+                    "h-px w-8 transition-all duration-500",
+                    isActive && i < stepIndex
+                      ? "bg-primary"
+                      : "bg-border"
+                  )}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* URL Step */}
       {step === "url" && (
-        <form onSubmit={handleUrlSubmit}>
+        <form onSubmit={handleUrlSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <FieldGroup>
-            <div className="flex flex-col items-center gap-1 text-center">
-              <h1 className="text-2xl font-bold">Welcome to betracked</h1>
-              <p className="text-muted-foreground text-sm text-balance">
-                Let&apos;s start by analyzing your website
+            <div className="flex flex-col items-center gap-2 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-2">
+                <Globe className="size-6 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground text-balance">
+                Welcome to betracked
+              </h1>
+              <p className="text-muted-foreground text-sm text-balance max-w-sm">
+                Enter your website URL and we&apos;ll generate tailored analysis
+                prompts to help you improve.
               </p>
             </div>
+
             <Field data-invalid={!!errors.websiteUrl}>
               <FieldLabel htmlFor="websiteUrl">Website URL</FieldLabel>
               <Input
@@ -160,78 +214,87 @@ export function OnboardingForm({
                 <FieldError>{errors.websiteUrl}</FieldError>
               )}
               <FieldDescription>
-                Enter the URL of the website you want to analyze
+                We&apos;ll scan your site to generate relevant analysis prompts
               </FieldDescription>
             </Field>
+
             <Field>
-              <Button type="submit" disabled={isLoading}>
-                Continue
+              <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+                Analyze Website
+                <ArrowRight className="size-4" />
               </Button>
             </Field>
           </FieldGroup>
         </form>
       )}
 
+      {/* Loading Transition Step */}
+      {step === "loading" && (
+        <div className="animate-in fade-in duration-500">
+          <OnboardingLoading
+            websiteUrl={websiteUrl}
+            onComplete={handleLoadingComplete}
+          />
+        </div>
+      )}
+
+      {/* Prompts Step */}
       {step === "prompts" && (
-        <FieldGroup>
-          <div className="flex flex-col items-center gap-1 text-center">
-            <h1 className="text-2xl font-bold">Select analysis prompts</h1>
-            <p className="text-muted-foreground text-sm text-balance">
-              Choose the aspects you want to analyze about your website
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col gap-5">
+          {/* Header */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-2">
+              <Sparkles className="size-6 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground text-balance">
+              Your analysis prompts
+            </h1>
+            <p className="text-muted-foreground text-sm text-balance max-w-sm">
+              Select the prompts you want to include, edit them, or add your own
+              custom prompts.
             </p>
           </div>
 
-          {/* Suggested prompts */}
-          <Field>
-            <FieldLabel>Suggested prompts</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {PLACEHOLDER_PROMPTS.map((prompt) => (
-                <Badge
-                  key={prompt}
-                  variant={
-                    selectedPrompts.includes(prompt) ? "default" : "outline"
-                  }
-                  className="cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => togglePrompt(prompt)}
-                >
-                  {prompt}
-                </Badge>
-              ))}
-            </div>
-            <FieldDescription>
-              Click to select or deselect prompts
-            </FieldDescription>
-          </Field>
+          {/* Selection summary */}
+          <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-2.5">
+            <span className="text-sm text-muted-foreground">
+              {selectedCount} of {prompts.length} selected
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setPrompts((prev) =>
+                  prev.map((p) => ({
+                    ...p,
+                    selected: selectedCount < prompts.length,
+                  }))
+                )
+              }
+              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              {selectedCount === prompts.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
 
-          {/* Selected prompts list */}
-          {selectedPrompts.length > 0 && (
-            <Field>
-              <FieldLabel>Selected prompts ({selectedPrompts.length})</FieldLabel>
-              <div className="bg-muted rounded-lg p-3 space-y-2">
-                {selectedPrompts.map((prompt) => (
-                  <div
-                    key={prompt}
-                    className="bg-background flex items-center justify-between gap-2 rounded-md p-2"
-                  >
-                    <span className="text-sm flex-1">{prompt}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removePrompt(prompt)}
-                      className="h-6 w-6 p-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </Field>
-          )}
+          {/* Prompt cards */}
+          <div className="flex flex-col gap-3 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
+            {prompts.map((prompt, index) => (
+              <OnboardingPromptCard
+                key={`${prompt.text}-${index}`}
+                prompt={prompt.text}
+                isSelected={prompt.selected}
+                isCustom={prompt.isCustom}
+                onToggle={() => togglePrompt(index)}
+                onEdit={(newText) => editPrompt(index, newText)}
+                onRemove={() => removePrompt(index)}
+                index={index}
+              />
+            ))}
+          </div>
 
           {/* Add custom prompt */}
-          <Field>
-            <FieldLabel>Add custom prompt</FieldLabel>
+          <div className="flex flex-col gap-2">
+            <FieldLabel className="text-sm font-medium">Add a custom prompt</FieldLabel>
             <div className="flex gap-2">
               <Input
                 placeholder="Enter your own analysis prompt..."
@@ -248,42 +311,49 @@ export function OnboardingForm({
               <Button
                 type="button"
                 variant="outline"
+                size="icon"
                 onClick={addCustomPrompt}
                 disabled={!customPrompt.trim() || isLoading}
+                className="shrink-0"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="size-4" />
+                <span className="sr-only">Add prompt</span>
               </Button>
             </div>
-          </Field>
+          </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => setStep("url")}
               disabled={isLoading}
-              className="flex-1"
+              className="flex-1 gap-2"
             >
+              <ArrowLeft className="size-4" />
               Back
             </Button>
             <Button
               type="button"
               onClick={handleConfirm}
-              disabled={isLoading || selectedPrompts.length === 0}
-              className="flex-1"
+              disabled={isLoading || selectedCount === 0}
+              className="flex-1 gap-2"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                   Starting...
                 </>
               ) : (
-                "Start Analysis"
+                <>
+                  Start Analysis
+                  <ArrowRight className="size-4" />
+                </>
               )}
             </Button>
           </div>
-        </FieldGroup>
+        </div>
       )}
     </div>
   );

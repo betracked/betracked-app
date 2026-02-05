@@ -158,10 +158,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             prompts: prev.prompts.map((p) =>
               p.id === prompt.id
                 ? {
-                    ...p,
-                    status: "done" as const,
-                    score: Math.floor(Math.random() * 30) + 70, // Random score 70-100
-                  }
+                  ...p,
+                  status: "done" as const,
+                  score: Math.floor(Math.random() * 30) + 70, // Random score 70-100
+                }
                 : p
             ),
           };
