@@ -47,7 +47,12 @@ export function OnboardingForm({
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [prompts, setPrompts] = useState<
-    { text: string; selected: boolean; isCustom: boolean }[]
+    {
+      text: string;
+      topic: string | null;
+      selected: boolean;
+      isCustom: boolean;
+    }[]
   >([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +92,7 @@ export function OnboardingForm({
           setPrompts(
             data.prompts.map((p) => ({
               text: p.text,
+              topic: p.topic,
               selected: true,
               isCustom: false,
             }))
@@ -145,6 +151,10 @@ export function OnboardingForm({
       // Create project via onboarding API
       const response = await api.api.onboardingControllerCreateAnalysis({
         websiteUrl,
+        prompts: prompts.map((p) => ({
+          text: p.text,
+          topic: p.topic,
+        })),
       });
 
       setAnalysisId(response.data.id);
@@ -200,7 +210,12 @@ export function OnboardingForm({
     }
     setPrompts((prev) => [
       ...prev,
-      { text: customPrompt.trim(), selected: true, isCustom: true },
+      {
+        text: customPrompt.trim(),
+        topic: null,
+        selected: true,
+        isCustom: true,
+      },
     ]);
     setCustomPrompt("");
   };
@@ -212,11 +227,19 @@ export function OnboardingForm({
   const handleConfirm = async () => {
     const selectedPrompts = prompts
       .filter((p) => p.selected)
-      .map((p) => p.text);
+      .map((p) => ({ text: p.text, topic: p.topic }));
     if (selectedPrompts.length === 0) {
       toast.error("Please select at least one prompt");
       return;
     }
+
+    await api.api.onboardingControllerCreateProject({
+      websiteUrl,
+      prompts: selectedPrompts.map((p) => ({
+        text: p.text,
+        topic: p.topic,
+      })),
+    });
 
     // Refresh user so needsOnboarding is false before navigating to /
     await refreshUser();

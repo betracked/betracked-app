@@ -20,7 +20,9 @@ export function PromptsList() {
   // Calculate overall progress
   useEffect(() => {
     if (!project?.prompts.length) {
-      setProgress(0);
+      setTimeout(() => {
+        setProgress(0);
+      }, 0);
       return;
     }
 

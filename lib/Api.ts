@@ -277,6 +277,35 @@ export interface CreateProjectRequestDto {
   description?: string;
 }
 
+export interface PromptResponseDto {
+  /**
+   * Prompt unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Project ID this prompt belongs to
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  projectId: string;
+  /**
+   * Prompt text
+   * @example "Track user signups on the homepage"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic: object | null;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+}
+
 export interface ProjectResponseDto {
   /**
    * Project unique identifier
@@ -298,6 +327,8 @@ export interface ProjectResponseDto {
    * @example "Main tracking and analytics workspace"
    */
   description?: object | null;
+  /** Prompts for the project */
+  prompts: PromptResponseDto[];
   /**
    * Creation timestamp
    * @format date-time
@@ -315,19 +346,6 @@ export interface ProjectResponseDto {
 export interface CreateProjectResponseDto {
   /** Created project */
   project: ProjectResponseDto;
-}
-
-export interface UpdateProjectRequestDto {
-  /**
-   * Project name
-   * @example "Acme Platform"
-   */
-  name?: string;
-  /**
-   * Project description
-   * @example "Main tracking and analytics workspace"
-   */
-  description?: object;
 }
 
 export interface CreateInvitationRequestDto {
@@ -397,12 +415,32 @@ export interface AcceptInvitationRequestDto {
   code: string;
 }
 
+export interface CreateOnboardingProjectPromptDto {
+  /**
+   * Prompt text
+   * @example "What is the main purpose of the website?"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "Purpose"
+   */
+  topic?: string | null;
+}
+
 export interface CreateOnboardingProjectRequestDto {
   /**
    * Website URL for analysis
    * @example "https://example.com"
    */
   websiteUrl: string;
+  /** Prompts for the project */
+  prompts: CreateOnboardingProjectPromptDto[];
+}
+
+export interface CreateOnboardingProjectResponseDto {
+  /** Project ID */
+  projectId: string;
 }
 
 export interface PromptDataResponseDto {
@@ -415,7 +453,7 @@ export interface PromptDataResponseDto {
    * Prompt topic
    * @example "marketing"
    */
-  topic?: object | null;
+  topic: string | null;
   /**
    * Prompt metadata
    * @example {"websiteUrl":"https://example.com"}
@@ -1221,30 +1259,6 @@ export class Api<
       }),
 
     /**
-     * @description Updates project fields for owners and maintainers
-     *
-     * @tags Projects
-     * @name ProjectsControllerUpdateProject
-     * @summary Update project
-     * @request PATCH:/api/projects/{projectId}
-     * @secure
-     */
-    projectsControllerUpdateProject: (
-      projectId: string,
-      data: UpdateProjectRequestDto,
-      params: RequestParams = {},
-    ) =>
-      this.request<ProjectResponseDto, any>({
-        path: `/api/projects/${projectId}`,
-        method: "PATCH",
-        body: data,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
      * @description Deletes a project (owner only)
      *
      * @tags Projects
@@ -1307,6 +1321,29 @@ export class Api<
         body: data,
         secure: true,
         type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Creates the first project for a new user with automatic slug generation and triggers website analysis
+     *
+     * @tags Onboarding
+     * @name OnboardingControllerCreateProject
+     * @summary Create project during onboarding
+     * @request POST:/api/onboarding/project
+     * @secure
+     */
+    onboardingControllerCreateProject: (
+      data: CreateOnboardingProjectRequestDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateOnboardingProjectResponseDto, any>({
+        path: `/api/onboarding/project`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
         ...params,
       }),
 

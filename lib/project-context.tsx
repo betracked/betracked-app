@@ -22,7 +22,6 @@ export interface Prompt {
 
 export interface Project {
   id: string;
-  websiteUrl: string;
   prompts: Prompt[];
   createdAt: string;
 }
@@ -106,23 +105,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     async (websiteUrl: string, promptTexts: string[]) => {
       try {
         // Call the onboarding API endpoint
-        const response = await api.api.onboardingControllerCreateProject({
+        await api.api.onboardingControllerCreateProject({
           websiteUrl,
-        });
-
-        // Create project with prompts (prompts are placeholder for now)
-        const newProject: Project = {
-          id: response.data.project.id,
-          websiteUrl: response.data.project.websiteUrl,
           prompts: promptTexts.map((text) => ({
-            id: crypto.randomUUID(),
             text,
-            status: "pending",
-            createdAt: new Date().toISOString(),
           })),
-          createdAt: response.data.project.createdAt,
-        };
-        setProject(newProject);
+        });
 
         // Reload projects list
         await loadProjects();
@@ -158,10 +146,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             prompts: prev.prompts.map((p) =>
               p.id === prompt.id
                 ? {
-                  ...p,
-                  status: "done" as const,
-                  score: Math.floor(Math.random() * 30) + 70, // Random score 70-100
-                }
+                    ...p,
+                    status: "done" as const,
+                    score: Math.floor(Math.random() * 30) + 70, // Random score 70-100
+                  }
                 : p
             ),
           };
