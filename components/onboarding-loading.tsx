@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 
 const ANALYSIS_STEPS = [
   "Connecting to website...",
@@ -12,50 +14,61 @@ const ANALYSIS_STEPS = [
 
 interface OnboardingLoadingProps {
   websiteUrl: string;
-  onComplete: () => void;
+  status: "pending" | "crawling" | "generating_prompts" | "completed" | "failed";
+  progress: number;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export function OnboardingLoading({
   websiteUrl,
-  onComplete,
+  status,
+  progress,
+  error,
+  onRetry,
 }: OnboardingLoadingProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [progress, setProgress] = useState(0);
+  // Map backend status to step index
+  const currentStep = useMemo(() => {
+    switch (status) {
+      case "pending":
+        return 0;
+      case "crawling":
+        return 1;
+      case "generating_prompts":
+        return 2; // Will show both "Analyzing content..." and "Generating prompts..."
+      case "completed":
+        return 3;
+      case "failed":
+        return -1;
+      default:
+        return 0;
+    }
+  }, [status]);
 
-  useEffect(() => {
-    // Animate progress smoothly
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          return 100;
-        }
-        return prev + 1;
-      });
-    }, 25);
+  // Show error state if failed
+  if (status === "failed" || error) {
+    return (
+      <div className="flex flex-col items-center gap-6">
+        <div className="flex size-16 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="size-8 text-destructive" />
+        </div>
+        
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-foreground">Analysis Failed</h3>
+          <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+            {error || "We couldn't analyze your website. Please try again."}
+          </p>
+        </div>
 
-    return () => clearInterval(progressInterval);
-  }, []);
-
-  useEffect(() => {
-    // Step through the analysis steps
-    const stepDuration = 650;
-    const timers = ANALYSIS_STEPS.map((_, index) =>
-      setTimeout(() => {
-        setCurrentStep(index);
-      }, index * stepDuration)
+        {onRetry && (
+          <Button onClick={onRetry} variant="outline" className="gap-2">
+            <ArrowLeft className="size-4" />
+            Try Again
+          </Button>
+        )}
+      </div>
     );
-
-    // Complete after all steps
-    const completeTimer = setTimeout(() => {
-      onComplete();
-    }, ANALYSIS_STEPS.length * stepDuration + 200);
-
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(completeTimer);
-    };
-  }, [onComplete]);
+  }
 
   return (
     <div className="flex flex-col items-center gap-8">
@@ -97,46 +110,55 @@ export function OnboardingLoading({
             style={{ width: `${progress}%` }}
           />
         </div>
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          {progress}%
+        </p>
       </div>
 
       {/* Animated step labels */}
       <div className="flex flex-col items-center gap-3 min-h-[120px]">
-        {ANALYSIS_STEPS.map((step, index) => (
-          <div
-            key={step}
-            className={cn(
-              "flex items-center gap-2.5 text-sm transition-all duration-500",
-              index < currentStep
-                ? "text-primary opacity-100"
-                : index === currentStep
-                  ? "text-foreground opacity-100 translate-y-0"
-                  : "text-muted-foreground/40 opacity-0 translate-y-2"
-            )}
-          >
-            {index < currentStep ? (
-              <svg
-                className="size-4 text-primary shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path
-                  d="M20 6L9 17l-5-5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : index === currentStep ? (
-              <div className="size-4 shrink-0 flex items-center justify-center">
-                <div className="size-2 rounded-full bg-primary animate-pulse" />
-              </div>
-            ) : (
-              <div className="size-4 shrink-0" />
-            )}
-            <span>{step}</span>
-          </div>
-        ))}
+        {ANALYSIS_STEPS.map((step, index) => {
+          // Determine if step is completed or current
+          const isCompleted = index < currentStep;
+          const isCurrent = index === currentStep || (status === "generating_prompts" && index >= 2 && index <= 3);
+
+          return (
+            <div
+              key={step}
+              className={cn(
+                "flex items-center gap-2.5 text-sm transition-all duration-500",
+                isCompleted
+                  ? "text-primary opacity-100"
+                  : isCurrent
+                    ? "text-foreground opacity-100 translate-y-0"
+                    : "text-muted-foreground/40 opacity-0 translate-y-2"
+              )}
+            >
+              {isCompleted ? (
+                <svg
+                  className="size-4 text-primary shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path
+                    d="M20 6L9 17l-5-5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : isCurrent ? (
+                <div className="size-4 shrink-0 flex items-center justify-center">
+                  <div className="size-2 rounded-full bg-primary animate-pulse" />
+                </div>
+              ) : (
+                <div className="size-4 shrink-0" />
+              )}
+              <span>{step}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

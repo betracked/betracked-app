@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Plus, Loader2, ArrowRight, ArrowLeft, Globe, Sparkles } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  ArrowRight,
+  ArrowLeft,
+  Globe,
+  Sparkles,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useProject } from "@/lib/project-context";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -19,17 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { OnboardingLoading } from "@/components/onboarding-loading";
 import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
-
-// Placeholder prompts (max 7 from backend)
-const PLACEHOLDER_PROMPTS = [
-  "How easy is it to find the pricing page?",
-  "Can users understand what the product does within 5 seconds?",
-  "Is the call-to-action button visible above the fold?",
-  "How clear is the navigation structure?",
-  "Are trust signals (reviews, logos) prominently displayed?",
-  "Is the checkout process straightforward?",
-  "How accessible is the contact information?",
-];
+import type { AnalysisResponseDto } from "@/lib/Api";
 
 // Validation schema
 const urlSchema = z.object({
@@ -44,19 +41,91 @@ export function OnboardingForm({
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter();
-  const { createProject, startAnalysis } = useProject();
 
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [prompts, setPrompts] = useState<{ text: string; selected: boolean; isCustom: boolean }[]>([]);
+  const [prompts, setPrompts] = useState<
+    { text: string; selected: boolean; isCustom: boolean }[]
+  >([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<OnboardingFormData>>({});
 
+  // Analysis state
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [analysisData, setAnalysisData] = useState<AnalysisResponseDto | null>(
+    null
+  );
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll analysis status
+  useEffect(() => {
+    if (!projectId || !analysisId || step !== "loading") {
+      return;
+    }
+
+    const pollAnalysis = async () => {
+      try {
+        const response = await api.api.analysisControllerGetAnalysis(
+          analysisId,
+          projectId
+        );
+        const data = response.data;
+        setAnalysisData(data);
+
+        // Handle completion
+        if (data.status === "completed" && data.prompts) {
+          // Stop polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+
+          // Initialize prompts from backend with first 5 pre-selected
+          setPrompts(
+            data.prompts.map((p) => ({
+              text: p.text,
+              selected: true,
+              isCustom: false,
+            }))
+          );
+          setStep("prompts");
+        } else if (data.status === "failed") {
+          // Stop polling on failure
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          setAnalysisError("Analysis failed. Please try again.");
+        }
+      } catch (error) {
+        console.error("Failed to fetch analysis:", error);
+        setAnalysisError("Failed to fetch analysis status.");
+      }
+    };
+
+    // Initial fetch
+    pollAnalysis();
+
+    // Start polling every 1 second
+    pollingIntervalRef.current = setInterval(pollAnalysis, 1000);
+
+    // Cleanup on unmount or step change
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [projectId, analysisId, step]);
+
   // Handle URL submission
-  const handleUrlSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUrlSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrors({});
+    setAnalysisError(null);
 
     const data = { websiteUrl };
     const result = urlSchema.safeParse(data);
@@ -70,21 +139,35 @@ export function OnboardingForm({
       return;
     }
 
-    // Move to loading transition
-    setStep("loading");
+    setIsLoading(true);
+
+    try {
+      // Create project via onboarding API
+      const response = await api.api.onboardingControllerCreateProject({
+        websiteUrl,
+      });
+
+      setProjectId(response.data.project.id);
+      setAnalysisId(response.data.analysisId);
+
+      // Move to loading step (polling will start automatically)
+      setStep("loading");
+    } catch (error) {
+      const apiError = error as { error?: { message?: string } };
+      const message =
+        apiError?.error?.message ||
+        "Failed to create project. Please try again.";
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // When loading animation completes
-  const handleLoadingComplete = useCallback(() => {
-    // Initialize prompts with first 5 pre-selected
-    setPrompts(
-      PLACEHOLDER_PROMPTS.map((text, i) => ({
-        text,
-        selected: i < 5,
-        isCustom: false,
-      }))
-    );
-    setStep("prompts");
+  // Handle retry on failure
+  const handleRetry = useCallback(() => {
+    setAnalysisError(null);
+    setAnalysisData(null);
+    setStep("url");
   }, []);
 
   // Toggle prompt selection
@@ -125,29 +208,18 @@ export function OnboardingForm({
 
   // Handle final confirmation
   const handleConfirm = async () => {
-    const selectedPrompts = prompts.filter((p) => p.selected).map((p) => p.text);
+    const selectedPrompts = prompts
+      .filter((p) => p.selected)
+      .map((p) => p.text);
     if (selectedPrompts.length === 0) {
       toast.error("Please select at least one prompt");
       return;
     }
 
-    setIsLoading(true);
-
-    try {
-      await createProject(websiteUrl, selectedPrompts);
-      toast.success("Project created! Starting analysis...");
-      router.push("/");
-      setTimeout(() => {
-        startAnalysis();
-      }, 500);
-    } catch (error) {
-      const apiError = error as { error?: { message?: string } };
-      const message =
-        apiError?.error?.message ||
-        "Failed to create project. Please try again.";
-      toast.error(message);
-      setIsLoading(false);
-    }
+    // For now, just redirect to home
+    // In the future, we might want to save selected prompts
+    toast.success("Analysis complete! Redirecting...");
+    router.push("/");
   };
 
   return (
@@ -169,9 +241,7 @@ export function OnboardingForm({
                 <div
                   className={cn(
                     "h-px w-8 transition-all duration-500",
-                    isActive && i < stepIndex
-                      ? "bg-primary"
-                      : "bg-border"
+                    isActive && i < stepIndex ? "bg-primary" : "bg-border"
                   )}
                 />
               )}
@@ -182,7 +252,10 @@ export function OnboardingForm({
 
       {/* URL Step */}
       {step === "url" && (
-        <form onSubmit={handleUrlSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <form
+          onSubmit={handleUrlSubmit}
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+        >
           <FieldGroup>
             <div className="flex flex-col items-center gap-2 text-center">
               <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-2">
@@ -219,7 +292,11 @@ export function OnboardingForm({
             </Field>
 
             <Field>
-              <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full gap-2"
+                disabled={isLoading}
+              >
                 Analyze Website
                 <ArrowRight className="size-4" />
               </Button>
@@ -233,7 +310,10 @@ export function OnboardingForm({
         <div className="animate-in fade-in duration-500">
           <OnboardingLoading
             websiteUrl={websiteUrl}
-            onComplete={handleLoadingComplete}
+            status={analysisData?.status || "pending"}
+            progress={analysisData?.progress || 0}
+            error={analysisError}
+            onRetry={handleRetry}
           />
         </div>
       )}
@@ -294,7 +374,9 @@ export function OnboardingForm({
 
           {/* Add custom prompt */}
           <div className="flex flex-col gap-2">
-            <FieldLabel className="text-sm font-medium">Add a custom prompt</FieldLabel>
+            <FieldLabel className="text-sm font-medium">
+              Add a custom prompt
+            </FieldLabel>
             <div className="flex gap-2">
               <Input
                 placeholder="Enter your own analysis prompt..."
@@ -347,7 +429,7 @@ export function OnboardingForm({
                 </>
               ) : (
                 <>
-                  Start Analysis
+                  Continue
                   <ArrowRight className="size-4" />
                 </>
               )}

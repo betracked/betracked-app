@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate-api": "swagger-typescript-api generate --path http://localhost:3000/api/docs.yaml -o lib -n Api"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
@@ -39,6 +40,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "swagger-typescript-api": "^13.2.16",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

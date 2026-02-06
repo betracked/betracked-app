@@ -405,6 +405,31 @@ export interface CreateOnboardingProjectRequestDto {
   websiteUrl: string;
 }
 
+export interface CreateOnboardingProjectResponseDto {
+  /** Project */
+  project: ProjectResponseDto;
+  /** Analysis ID */
+  analysisId: string;
+}
+
+export interface PromptDataResponseDto {
+  /**
+   * Prompt text
+   * @example "What is the main purpose of the website?"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic?: object | null;
+  /**
+   * Prompt metadata
+   * @example {"websiteUrl":"https://example.com"}
+   */
+  metadata?: object | null;
+}
+
 export interface AnalysisResponseDto {
   /**
    * Analysis unique identifier
@@ -420,39 +445,21 @@ export interface AnalysisResponseDto {
    * Analysis status
    * @example "completed"
    */
-  status: "pending" | "running" | "completed" | "failed";
+  status:
+    | "pending"
+    | "crawling"
+    | "generating_prompts"
+    | "completed"
+    | "failed";
   /**
-   * Analysis result (null until completed)
-   * @example {"placeholder":true,"analyzedAt":"2024-01-01T00:00:00Z"}
+   * Analysis progress percentage (0-100)
+   * @min 0
+   * @max 100
+   * @example 75
    */
-  result?: object | null;
-  /**
-   * When analysis started
-   * @example "2024-01-01T00:00:00Z"
-   */
-  startedAt?: object | null;
-  /**
-   * When analysis completed
-   * @example "2024-01-01T00:00:30Z"
-   */
-  completedAt?: object | null;
-  /**
-   * Error message if analysis failed
-   * @example "Failed to fetch website"
-   */
-  errorMessage?: object | null;
-  /**
-   * Creation timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  createdAt: string;
-  /**
-   * Last update timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:30Z"
-   */
-  updatedAt: string;
+  progress: number;
+  /** Prompts generated for the analysis (null until completed) */
+  prompts: PromptDataResponseDto[] | null;
 }
 
 export type QueryParamsType = Record<string | number, any>;
@@ -1328,54 +1335,12 @@ export class Api<
       data: CreateOnboardingProjectRequestDto,
       params: RequestParams = {},
     ) =>
-      this.request<CreateProjectResponseDto, any>({
+      this.request<CreateOnboardingProjectResponseDto, any>({
         path: `/api/onboarding/project`,
         method: "POST",
         body: data,
         secure: true,
         type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Retrieves all analyses for a project
-     *
-     * @tags Analysis
-     * @name AnalysisControllerGetAnalyses
-     * @summary Get analyses
-     * @request GET:/api/projects/{projectId}/analysis
-     * @secure
-     */
-    analysisControllerGetAnalyses: (
-      projectId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<AnalysisResponseDto[], any>({
-        path: `/api/projects/${projectId}/analysis`,
-        method: "GET",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Retrieves the most recent analysis for a project
-     *
-     * @tags Analysis
-     * @name AnalysisControllerGetLatestAnalysis
-     * @summary Get latest analysis
-     * @request GET:/api/projects/{projectId}/analysis/latest
-     * @secure
-     */
-    analysisControllerGetLatestAnalysis: (
-      projectId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<AnalysisResponseDto, void>({
-        path: `/api/projects/${projectId}/analysis/latest`,
-        method: "GET",
-        secure: true,
         format: "json",
         ...params,
       }),

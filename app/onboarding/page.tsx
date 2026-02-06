@@ -9,7 +9,10 @@ export default function OnboardingPage() {
       {/* Left panel - form */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
-          <Link href="/" className="flex items-center gap-2 font-medium text-foreground">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-medium text-foreground"
+          >
             <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
               <GalleryVerticalEnd className="size-4" />
             </div>
@@ -48,13 +51,14 @@ export default function OnboardingPage() {
               Understand your website like never before
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed text-balance">
-              betracked uses AI-powered analysis prompts to evaluate your website
-              across usability, design, accessibility, and conversion metrics.
+              betracked uses AI-powered analysis prompts to evaluate your
+              website across usability, design, accessibility, and conversion
+              metrics.
             </p>
           </div>
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-2">
-            {["UX Analysis", "Conversion Tracking", "Accessibility", "Performance"].map(
+            {["Conversion Tracking", "Prompt Analysis", "Performance"].map(
               (feature) => (
                 <span
                   key={feature}

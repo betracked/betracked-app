@@ -106,6 +106,7 @@ export function LoginForm({
           <Input
             id="email"
             name="email"
+            defaultValue="test@test.com"
             type="email"
             placeholder="m@example.com"
             autoComplete="email"
@@ -127,6 +128,7 @@ export function LoginForm({
           <Input
             id="password"
             name="password"
+            defaultValue="password123"
             type="password"
             autoComplete="current-password"
             disabled={isLoading}
