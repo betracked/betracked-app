@@ -49,11 +49,6 @@ export interface AuthResponse {
    * @example "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OCIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGVzIjpbInVzZXIiXSwiaWF0IjoxNTE2MjM5MDIyfQ"
    */
   refreshToken: string;
-  /**
-   * Needs onboarding
-   * @example true
-   */
-  needsOnboarding: boolean;
 }
 
 export interface LoginDto {
@@ -173,6 +168,11 @@ export interface UserResponseDto {
    * @example "2024-01-15T10:30:00Z"
    */
   lastLoginAt?: object | null;
+  /**
+   * Needs onboarding
+   * @example true
+   */
+  needsOnboarding: boolean;
   /**
    * Account creation timestamp
    * @format date-time
@@ -405,13 +405,6 @@ export interface CreateOnboardingProjectRequestDto {
   websiteUrl: string;
 }
 
-export interface CreateOnboardingProjectResponseDto {
-  /** Project */
-  project: ProjectResponseDto;
-  /** Analysis ID */
-  analysisId: string;
-}
-
 export interface PromptDataResponseDto {
   /**
    * Prompt text
@@ -436,11 +429,6 @@ export interface AnalysisResponseDto {
    * @example "123e4567-e89b-12d3-a456-426614174000"
    */
   id: string;
-  /**
-   * Project ID this analysis belongs to
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  projectId: string;
   /**
    * Analysis status
    * @example "completed"
@@ -1323,20 +1311,20 @@ export class Api<
       }),
 
     /**
-     * @description Creates the first project for a new user with automatic slug generation and triggers website analysis
+     * @description Creates an analysis for a project during onboarding
      *
      * @tags Onboarding
-     * @name OnboardingControllerCreateProject
-     * @summary Create project during onboarding
-     * @request POST:/api/onboarding/project
+     * @name OnboardingControllerCreateAnalysis
+     * @summary Create analysis during onboarding
+     * @request POST:/api/onboarding/analysis
      * @secure
      */
-    onboardingControllerCreateProject: (
+    onboardingControllerCreateAnalysis: (
       data: CreateOnboardingProjectRequestDto,
       params: RequestParams = {},
     ) =>
-      this.request<CreateOnboardingProjectResponseDto, any>({
-        path: `/api/onboarding/project`,
+      this.request<AnalysisResponseDto, any>({
+        path: `/api/onboarding/analysis`,
         method: "POST",
         body: data,
         secure: true,
@@ -1351,16 +1339,15 @@ export class Api<
      * @tags Analysis
      * @name AnalysisControllerGetAnalysis
      * @summary Get analysis by ID
-     * @request GET:/api/projects/{projectId}/analysis/{analysisId}
+     * @request GET:/api/analysis/{analysisId}
      * @secure
      */
     analysisControllerGetAnalysis: (
       analysisId: string,
-      projectId: any,
       params: RequestParams = {},
     ) =>
       this.request<AnalysisResponseDto, void>({
-        path: `/api/projects/${projectId}/analysis/${analysisId}`,
+        path: `/api/analysis/${analysisId}`,
         method: "GET",
         secure: true,
         format: "json",

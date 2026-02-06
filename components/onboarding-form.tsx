@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -41,6 +42,7 @@ export function OnboardingForm({
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter();
+  const { refreshUser } = useAuth();
 
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -52,7 +54,6 @@ export function OnboardingForm({
   const [errors, setErrors] = useState<Partial<OnboardingFormData>>({});
 
   // Analysis state
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisResponseDto | null>(
     null
@@ -62,15 +63,14 @@ export function OnboardingForm({
 
   // Poll analysis status
   useEffect(() => {
-    if (!projectId || !analysisId || step !== "loading") {
+    if (!analysisId || step !== "loading") {
       return;
     }
 
     const pollAnalysis = async () => {
       try {
         const response = await api.api.analysisControllerGetAnalysis(
-          analysisId,
-          projectId
+          analysisId
         );
         const data = response.data;
         setAnalysisData(data);
@@ -119,7 +119,7 @@ export function OnboardingForm({
         pollingIntervalRef.current = null;
       }
     };
-  }, [projectId, analysisId, step]);
+  }, [analysisId, step]);
 
   // Handle URL submission
   const handleUrlSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -143,12 +143,14 @@ export function OnboardingForm({
 
     try {
       // Create project via onboarding API
-      const response = await api.api.onboardingControllerCreateProject({
+      const response = await api.api.onboardingControllerCreateAnalysis({
         websiteUrl,
       });
 
-      setProjectId(response.data.project.id);
-      setAnalysisId(response.data.analysisId);
+      setAnalysisId(response.data.id);
+
+      // Refresh user so needsOnboarding updates (backend sets it false after project creation)
+      await refreshUser();
 
       // Move to loading step (polling will start automatically)
       setStep("loading");
@@ -216,8 +218,8 @@ export function OnboardingForm({
       return;
     }
 
-    // For now, just redirect to home
-    // In the future, we might want to save selected prompts
+    // Refresh user so needsOnboarding is false before navigating to /
+    await refreshUser();
     toast.success("Analysis complete! Redirecting...");
     router.push("/");
   };

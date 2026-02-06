@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { OnboardingForm } from "@/components/onboarding-form";
+import { OnboardingGuard } from "./onboarding-guard";
 import { GalleryVerticalEnd, Loader2 } from "lucide-react";
 
 export default function OnboardingPage() {
   return (
+    <OnboardingGuard>
     <div className="grid min-h-svh lg:grid-cols-2">
       {/* Left panel - form */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
@@ -72,5 +74,6 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+    </OnboardingGuard>
   );
 }
