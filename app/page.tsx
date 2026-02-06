@@ -17,7 +17,7 @@ import getData from "./data";
 export default function Page() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { project, isLoading: projectLoading } = useProject();
+  const { activeProject, isLoading: projectLoading } = useProject();
 
   // Redirect to onboarding when user has not completed onboarding
   useEffect(() => {
@@ -45,8 +45,8 @@ export default function Page() {
   }
 
   // No project yet (e.g. just finished onboarding, projects loading) – show loading or empty state
-  if (!project) {
-    return null;
+  if (!activeProject) {
+    return <h1>No active project, but after onboarding</h1>;
   }
 
   return (

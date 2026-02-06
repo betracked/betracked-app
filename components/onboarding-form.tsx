@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth";
+import { useProject } from "@/lib/project-context";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -43,6 +44,7 @@ export function OnboardingForm({
 }: React.ComponentProps<"div">) {
   const router = useRouter();
   const { refreshUser } = useAuth();
+  const { loadProjects } = useProject();
 
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -241,8 +243,9 @@ export function OnboardingForm({
       })),
     });
 
-    // Refresh user so needsOnboarding is false before navigating to /
+    // Refetch user (needsOnboarding false) and projects so / has fresh data
     await refreshUser();
+    await loadProjects();
     toast.success("Analysis complete! Redirecting...");
     router.push("/");
   };
