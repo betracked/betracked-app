@@ -8,6 +8,7 @@ import { DataTable } from "@/components/data-table";
 import { SectionCards } from "@/components/section-cards";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { useAuth } from "@/lib/auth";
 import { useProject } from "@/lib/project-context";
 import { Loader2 } from "lucide-react";
 import { PromptsList } from "@/components/prompts-list";
@@ -15,16 +16,19 @@ import getData from "./data";
 
 export default function Page() {
   const router = useRouter();
-  const { project, isLoading } = useProject();
+  const { user, isLoading: authLoading } = useAuth();
+  const { activeProject, isLoading: projectLoading } = useProject();
 
-  // Redirect to onboarding if no project
+  // Redirect to onboarding when user has not completed onboarding
   useEffect(() => {
-    if (!isLoading && !project) {
+    if (authLoading) return;
+    if (user?.needsOnboarding) {
       router.push("/onboarding");
     }
-  }, [isLoading, project, router]);
+  }, [authLoading, user?.needsOnboarding, router]);
 
   const data = getData();
+  const isLoading = authLoading || projectLoading;
 
   // Show loading state
   if (isLoading) {
@@ -35,8 +39,13 @@ export default function Page() {
     );
   }
 
-  // Show nothing while redirecting
-  if (!project) {
+  // Redirecting to onboarding (needsOnboarding === true)
+  if (user?.needsOnboarding) {
+    return null;
+  }
+
+  // No project yet (e.g. just finished onboarding, projects loading) – show loading or empty state
+  if (!activeProject) {
     return null;
   }
 

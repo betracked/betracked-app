@@ -49,11 +49,6 @@ export interface AuthResponse {
    * @example "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OCIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGVzIjpbInVzZXIiXSwiaWF0IjoxNTE2MjM5MDIyfQ"
    */
   refreshToken: string;
-  /**
-   * Needs onboarding
-   * @example true
-   */
-  needsOnboarding: boolean;
 }
 
 export interface LoginDto {
@@ -174,6 +169,11 @@ export interface UserResponseDto {
    */
   lastLoginAt?: object | null;
   /**
+   * Needs onboarding
+   * @example true
+   */
+  needsOnboarding: boolean;
+  /**
    * Account creation timestamp
    * @format date-time
    * @example "2024-01-01T00:00:00Z"
@@ -277,6 +277,35 @@ export interface CreateProjectRequestDto {
   description?: string;
 }
 
+export interface PromptResponseDto {
+  /**
+   * Prompt unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Project ID this prompt belongs to
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  projectId: string;
+  /**
+   * Prompt text
+   * @example "Track user signups on the homepage"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic: object | null;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+}
+
 export interface ProjectResponseDto {
   /**
    * Project unique identifier
@@ -298,6 +327,8 @@ export interface ProjectResponseDto {
    * @example "Main tracking and analytics workspace"
    */
   description?: object | null;
+  /** Prompts for the project */
+  prompts: PromptResponseDto[];
   /**
    * Creation timestamp
    * @format date-time
@@ -315,19 +346,6 @@ export interface ProjectResponseDto {
 export interface CreateProjectResponseDto {
   /** Created project */
   project: ProjectResponseDto;
-}
-
-export interface UpdateProjectRequestDto {
-  /**
-   * Project name
-   * @example "Acme Platform"
-   */
-  name?: string;
-  /**
-   * Project description
-   * @example "Main tracking and analytics workspace"
-   */
-  description?: object;
 }
 
 export interface CreateInvitationRequestDto {
@@ -397,12 +415,50 @@ export interface AcceptInvitationRequestDto {
   code: string;
 }
 
+export interface CreateOnboardingProjectPromptDto {
+  /**
+   * Prompt text
+   * @example "What is the main purpose of the website?"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "Purpose"
+   */
+  topic?: string | null;
+}
+
 export interface CreateOnboardingProjectRequestDto {
   /**
    * Website URL for analysis
    * @example "https://example.com"
    */
   websiteUrl: string;
+  /** Prompts for the project */
+  prompts: CreateOnboardingProjectPromptDto[];
+}
+
+export interface CreateOnboardingProjectResponseDto {
+  /** Project ID */
+  projectId: string;
+}
+
+export interface PromptDataResponseDto {
+  /**
+   * Prompt text
+   * @example "What is the main purpose of the website?"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic: string | null;
+  /**
+   * Prompt metadata
+   * @example {"websiteUrl":"https://example.com"}
+   */
+  metadata?: object | null;
 }
 
 export interface AnalysisResponseDto {
@@ -412,47 +468,24 @@ export interface AnalysisResponseDto {
    */
   id: string;
   /**
-   * Project ID this analysis belongs to
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  projectId: string;
-  /**
    * Analysis status
    * @example "completed"
    */
-  status: "pending" | "running" | "completed" | "failed";
+  status:
+    | "pending"
+    | "crawling"
+    | "generating_prompts"
+    | "completed"
+    | "failed";
   /**
-   * Analysis result (null until completed)
-   * @example {"placeholder":true,"analyzedAt":"2024-01-01T00:00:00Z"}
+   * Analysis progress percentage (0-100)
+   * @min 0
+   * @max 100
+   * @example 75
    */
-  result?: object | null;
-  /**
-   * When analysis started
-   * @example "2024-01-01T00:00:00Z"
-   */
-  startedAt?: object | null;
-  /**
-   * When analysis completed
-   * @example "2024-01-01T00:00:30Z"
-   */
-  completedAt?: object | null;
-  /**
-   * Error message if analysis failed
-   * @example "Failed to fetch website"
-   */
-  errorMessage?: object | null;
-  /**
-   * Creation timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  createdAt: string;
-  /**
-   * Last update timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:30Z"
-   */
-  updatedAt: string;
+  progress: number;
+  /** Prompts generated for the analysis (null until completed) */
+  prompts: PromptDataResponseDto[] | null;
 }
 
 export type QueryParamsType = Record<string | number, any>;
@@ -1226,30 +1259,6 @@ export class Api<
       }),
 
     /**
-     * @description Updates project fields for owners and maintainers
-     *
-     * @tags Projects
-     * @name ProjectsControllerUpdateProject
-     * @summary Update project
-     * @request PATCH:/api/projects/{projectId}
-     * @secure
-     */
-    projectsControllerUpdateProject: (
-      projectId: string,
-      data: UpdateProjectRequestDto,
-      params: RequestParams = {},
-    ) =>
-      this.request<ProjectResponseDto, any>({
-        path: `/api/projects/${projectId}`,
-        method: "PATCH",
-        body: data,
-        secure: true,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
      * @description Deletes a project (owner only)
      *
      * @tags Projects
@@ -1328,7 +1337,7 @@ export class Api<
       data: CreateOnboardingProjectRequestDto,
       params: RequestParams = {},
     ) =>
-      this.request<CreateProjectResponseDto, any>({
+      this.request<CreateOnboardingProjectResponseDto, any>({
         path: `/api/onboarding/project`,
         method: "POST",
         body: data,
@@ -1339,43 +1348,24 @@ export class Api<
       }),
 
     /**
-     * @description Retrieves all analyses for a project
+     * @description Creates an analysis for a project during onboarding
      *
-     * @tags Analysis
-     * @name AnalysisControllerGetAnalyses
-     * @summary Get analyses
-     * @request GET:/api/projects/{projectId}/analysis
+     * @tags Onboarding
+     * @name OnboardingControllerCreateAnalysis
+     * @summary Create analysis during onboarding
+     * @request POST:/api/onboarding/analysis
      * @secure
      */
-    analysisControllerGetAnalyses: (
-      projectId: string,
+    onboardingControllerCreateAnalysis: (
+      data: CreateOnboardingProjectRequestDto,
       params: RequestParams = {},
     ) =>
-      this.request<AnalysisResponseDto[], any>({
-        path: `/api/projects/${projectId}/analysis`,
-        method: "GET",
+      this.request<AnalysisResponseDto, any>({
+        path: `/api/onboarding/analysis`,
+        method: "POST",
+        body: data,
         secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Retrieves the most recent analysis for a project
-     *
-     * @tags Analysis
-     * @name AnalysisControllerGetLatestAnalysis
-     * @summary Get latest analysis
-     * @request GET:/api/projects/{projectId}/analysis/latest
-     * @secure
-     */
-    analysisControllerGetLatestAnalysis: (
-      projectId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<AnalysisResponseDto, void>({
-        path: `/api/projects/${projectId}/analysis/latest`,
-        method: "GET",
-        secure: true,
+        type: ContentType.Json,
         format: "json",
         ...params,
       }),
@@ -1386,16 +1376,15 @@ export class Api<
      * @tags Analysis
      * @name AnalysisControllerGetAnalysis
      * @summary Get analysis by ID
-     * @request GET:/api/projects/{projectId}/analysis/{analysisId}
+     * @request GET:/api/analysis/{analysisId}
      * @secure
      */
     analysisControllerGetAnalysis: (
       analysisId: string,
-      projectId: any,
       params: RequestParams = {},
     ) =>
       this.request<AnalysisResponseDto, void>({
-        path: `/api/projects/${projectId}/analysis/${analysisId}`,
+        path: `/api/analysis/${analysisId}`,
         method: "GET",
         secure: true,
         format: "json",

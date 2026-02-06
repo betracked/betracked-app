@@ -14,7 +14,6 @@ import {
   setTokens,
   clearTokens,
   getAccessToken,
-  getRefreshToken,
   isTokenExpired,
   refreshAccessToken,
 } from "./api-client";
@@ -78,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state on mount
   useEffect(() => {
-    refreshUser();
+    setTimeout(async () => {
+      await refreshUser();
+    }, 0);
   }, [refreshUser]);
 
   // Set up token refresh interval
