@@ -46,7 +46,7 @@ export default function Page() {
 
   // No project yet (e.g. just finished onboarding, projects loading) – show loading or empty state
   if (!activeProject) {
-    return <h1>No active project, but after onboarding</h1>;
+    return null;
   }
 
   return (

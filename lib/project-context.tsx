@@ -10,6 +10,7 @@ import {
 } from "react";
 import { api, getAccessToken } from "./api-client";
 import type { ProjectResponseDto } from "./Api";
+import { useAuth } from "./auth";
 
 // Types
 interface ProjectContextType {
@@ -25,6 +26,7 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   // API projects state
   const [projects, setProjects] = useState<ProjectResponseDto[]>([]);
@@ -55,9 +57,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Load projects from API on mount.
-  // We removed localStorage as a source of truth to avoid stale projects.
+  // Load projects only when signed in and not in onboarding.
+  // Waits for auth to be ready, then loads when user is in the app (post-onboarding).
   useEffect(() => {
+    if (authLoading) return;
+    const shouldLoad = !!user && !user.needsOnboarding && !!getAccessToken();
+    if (!shouldLoad) {
+      setProjects([]);
+      setActiveProject(null);
+      setIsLoading(false);
+      return;
+    }
+
     const initializeProjects = async () => {
       try {
         await loadProjects();
@@ -69,7 +80,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
 
     initializeProjects();
-  }, [loadProjects]);
+  }, [authLoading, user, loadProjects]);
 
   // Create a new project via API
   const createProject = useCallback(
