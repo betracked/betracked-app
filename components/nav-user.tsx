@@ -26,6 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { NavUserDevOnly } from "@/components/nav-user-dev-only";
 
 export function NavUser({
   user,
@@ -38,6 +39,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const { logout } = useAuth();
+  const isDev = process.env.NODE_ENV === "development";
 
   return (
     <SidebarMenu>
@@ -83,6 +85,12 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              {isDev && (
+                <>
+                  <NavUserDevOnly />
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem>
                 <UserCircleIcon />
                 Account

@@ -1371,6 +1371,23 @@ export class Api<
       }),
 
     /**
+     * @description Resets the onboarding admin
+     *
+     * @tags Onboarding
+     * @name OnboardingControllerResetOnboardingAdmin
+     * @summary Reset onboarding admin
+     * @request POST:/api/onboarding/reset-onboarding-admin
+     * @secure
+     */
+    onboardingControllerResetOnboardingAdmin: (params: RequestParams = {}) =>
+      this.request<void, any>({
+        path: `/api/onboarding/reset-onboarding-admin`,
+        method: "POST",
+        secure: true,
+        ...params,
+      }),
+
+    /**
      * @description Retrieves a specific analysis
      *
      * @tags Analysis
