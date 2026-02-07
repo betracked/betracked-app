@@ -27,10 +27,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
-  ArrowRight,
   CircleCheck,
   Loader,
   CircleDashed,
+  ExternalLink,
 } from "lucide-react";
 import {
   flexRender,
@@ -145,9 +145,7 @@ const columns: ColumnDef<PromptResponseDto>[] = [
     cell: ({ row }) => {
       const topic = row.original.topic;
       if (!topic) {
-        return (
-          <span className="text-muted-foreground text-sm italic">--</span>
-        );
+        return <span className="text-muted-foreground text-sm italic">--</span>;
       }
       return (
         <Badge variant="outline" className="text-muted-foreground px-1.5">
@@ -182,14 +180,14 @@ const columns: ColumnDef<PromptResponseDto>[] = [
       <Button
         variant="ghost"
         size="icon"
-        className="text-muted-foreground group-hover:text-foreground size-8 opacity-0 transition-all group-hover:opacity-100"
+        className="text-muted-foreground size-8 transition-all opacity-70"
         onClick={() => {
           toast.info(
             `Navigation to prompt detail not implemented yet (id: ${row.original.id})`
           );
         }}
       >
-        <ArrowRight className="size-4" />
+        <ExternalLink className="size-4" />
         <span className="sr-only">View prompt details</span>
       </Button>
     ),
