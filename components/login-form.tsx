@@ -63,15 +63,13 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      const response = await login(data);
+      await login(data);
 
       toast.success("Welcome back!");
 
       // Redirect to original destination or home/onboarding
       const redirect = searchParams.get("redirect");
-      if (response.needsOnboarding) {
-        router.push("/onboarding");
-      } else if (redirect) {
+      if (redirect) {
         router.push(redirect);
       } else {
         router.push("/");

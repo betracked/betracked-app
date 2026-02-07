@@ -72,16 +72,12 @@ export function RegisterForm({
     setIsLoading(true);
 
     try {
-      const response = await register(data);
+      await register(data);
 
       toast.success("Account created! Please check your email to verify.");
 
       // Redirect to onboarding or home
-      if (response.needsOnboarding) {
-        router.push("/onboarding");
-      } else {
-        router.push("/");
-      }
+      router.push("/");
     } catch (error: unknown) {
       // Handle API errors
       const apiError = error as { error?: { message?: string } };
