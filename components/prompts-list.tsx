@@ -27,7 +27,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
-  MoreVertical,
+  ArrowRight,
+  CircleCheck,
+  Loader,
+  CircleDashed,
 } from "lucide-react";
 import {
   flexRender,
@@ -41,13 +44,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -85,6 +81,42 @@ function DragHandle({ id }: { id: string }) {
   );
 }
 
+// ---------- Status helpers ----------
+type PromptStatus = "done" | "in_progress" | "pending";
+
+/**
+ * Derive a visual status from the prompt.
+ * The API does not expose a status field yet, so we infer one from the topic:
+ *   - topic exists  -> "done"
+ *   - otherwise     -> "pending"
+ * This can be swapped for a real field when the API supports it.
+ */
+function deriveStatus(prompt: PromptResponseDto): PromptStatus {
+  if (prompt.topic) return "done";
+  return "pending";
+}
+
+const statusConfig: Record<
+  PromptStatus,
+  { icon: React.ElementType; label: string; className: string }
+> = {
+  done: {
+    icon: CircleCheck,
+    label: "Done",
+    className: "fill-green-500 dark:fill-green-400 text-background",
+  },
+  in_progress: {
+    icon: Loader,
+    label: "In Progress",
+    className: "text-primary animate-spin",
+  },
+  pending: {
+    icon: CircleDashed,
+    label: "Pending",
+    className: "text-muted-foreground",
+  },
+};
+
 // ---------- Columns ----------
 const columns: ColumnDef<PromptResponseDto>[] = [
   {
@@ -95,7 +127,9 @@ const columns: ColumnDef<PromptResponseDto>[] = [
   },
   {
     accessorKey: "text",
-    header: "Prompt",
+    header: () => (
+      <span className="text-xs font-normal text-muted-foreground">Prompt</span>
+    ),
     cell: ({ row }) => (
       <span className="text-foreground line-clamp-1 font-medium">
         {row.original.text}
@@ -105,12 +139,14 @@ const columns: ColumnDef<PromptResponseDto>[] = [
   },
   {
     accessorKey: "topic",
-    header: "Topic",
+    header: () => (
+      <span className="text-xs font-normal text-muted-foreground">Topic</span>
+    ),
     cell: ({ row }) => {
       const topic = row.original.topic;
       if (!topic) {
         return (
-          <span className="text-muted-foreground text-sm italic">No topic</span>
+          <span className="text-muted-foreground text-sm italic">--</span>
         );
       }
       return (
@@ -122,60 +158,40 @@ const columns: ColumnDef<PromptResponseDto>[] = [
     size: 150,
   },
   {
-    accessorKey: "createdAt",
-    header: "Created",
+    id: "status",
+    header: () => (
+      <span className="text-xs font-normal text-muted-foreground">Status</span>
+    ),
     cell: ({ row }) => {
-      const date = new Date(row.original.createdAt);
+      const status = deriveStatus(row.original);
+      const config = statusConfig[status];
+      const Icon = config.icon;
       return (
-        <span className="text-muted-foreground text-sm tabular-nums">
-          {date.toLocaleDateString()}
-        </span>
+        <Badge variant="outline" className="text-muted-foreground gap-1 px-1.5">
+          <Icon className={`size-3.5 ${config.className}`} />
+          {config.label}
+        </Badge>
       );
     },
-    size: 120,
+    size: 130,
   },
   {
     id: "actions",
     header: () => null,
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-            size="icon"
-          >
-            <MoreVertical />
-            <span className="sr-only">Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem
-            onClick={() => {
-              toast.info(`Editing: ${row.original.text.slice(0, 40)}...`);
-            }}
-          >
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              navigator.clipboard.writeText(row.original.text);
-              toast.success("Copied to clipboard");
-            }}
-          >
-            Copy text
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              toast.info("Delete not implemented yet");
-            }}
-          >
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground group-hover:text-foreground size-8 opacity-0 transition-all group-hover:opacity-100"
+        onClick={() => {
+          toast.info(
+            `Navigation to prompt detail not implemented yet (id: ${row.original.id})`
+          );
+        }}
+      >
+        <ArrowRight className="size-4" />
+        <span className="sr-only">View prompt details</span>
+      </Button>
     ),
     size: 48,
   },
@@ -191,7 +207,7 @@ function DraggableRow({ row }: { row: Row<PromptResponseDto> }) {
     <TableRow
       data-dragging={isDragging}
       ref={setNodeRef}
-      className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
+      className="group relative z-0 cursor-pointer transition-colors hover:bg-muted/50 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,
@@ -282,7 +298,7 @@ export function PromptsList() {
           id={sortableId}
         >
           <Table>
-            <TableHeader className="bg-muted sticky top-0 z-10">
+            <TableHeader className="sticky top-0 z-10 [&_tr]:border-b-0">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
