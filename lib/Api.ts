@@ -277,6 +277,45 @@ export interface CreateProjectRequestDto {
   description?: string;
 }
 
+export interface VisibilityResponseDto {
+  /**
+   * Visibility unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Prompt ID this visibility belongs to
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  promptId: string;
+  /**
+   * Visibility status
+   * @example "analyzing"
+   */
+  status: "analyzing" | "completed" | "failed";
+  /** Visibility score (when completed) */
+  score: number | null;
+  /** LLM response (when completed) */
+  llmResponse: object | null;
+  /**
+   * Execution timestamp
+   * @example "2024-01-01T00:00:00Z"
+   */
+  executedAt: object | null;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+  /**
+   * Last update timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  updatedAt: string;
+}
+
 export interface PromptResponseDto {
   /**
    * Prompt unique identifier
@@ -298,6 +337,8 @@ export interface PromptResponseDto {
    * @example "marketing"
    */
   topic: object | null;
+  /** Latest visibility status (analyzing/completed/failed) */
+  latestVisibility: VisibilityResponseDto | null;
   /**
    * Creation timestamp
    * @format date-time
@@ -415,6 +456,39 @@ export interface AcceptInvitationRequestDto {
   code: string;
 }
 
+export interface PromptDetailResponseDto {
+  /**
+   * Prompt unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Project ID this prompt belongs to
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  projectId: string;
+  /**
+   * Prompt text
+   * @example "Track user signups on the homepage"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic: object | null;
+  /** Latest visibility status (analyzing/completed/failed) */
+  latestVisibility: VisibilityResponseDto | null;
+  /** Full visibility check history, newest first */
+  visibilityHistory: VisibilityResponseDto[];
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+}
+
 export interface CreateOnboardingProjectPromptDto {
   /**
    * Prompt text
@@ -441,6 +515,14 @@ export interface CreateOnboardingProjectRequestDto {
 export interface CreateOnboardingProjectResponseDto {
   /** Project ID */
   projectId: string;
+}
+
+export interface CreateOnboardingAnalysisRequestDto {
+  /**
+   * Website URL for analysis
+   * @example "https://example.com"
+   */
+  websiteUrl: string;
 }
 
 export interface PromptDataResponseDto {
@@ -754,6 +836,21 @@ export class Api<
   SecurityDataType extends unknown,
 > extends HttpClient<SecurityDataType> {
   api = {
+    /**
+     * @description Tests the OpenRouter API connection and prompt generation
+     *
+     * @tags Dev
+     * @name DevControllerTestOpenRouter
+     * @summary Test OpenRouter integration
+     * @request POST:/api/dev/test-openrouter
+     */
+    devControllerTestOpenRouter: (params: RequestParams = {}) =>
+      this.request<void, any>({
+        path: `/api/dev/test-openrouter`,
+        method: "POST",
+        ...params,
+      }),
+
     /**
      * @description Checks if the service is alive. Used by orchestrators to determine if the service should be restarted.
      *
@@ -1325,6 +1422,93 @@ export class Api<
       }),
 
     /**
+     * @description Triggers visibility checks for all prompts in the project. Returns 202 Accepted.
+     *
+     * @tags Prompts
+     * @name PromptsControllerTriggerVisibilityForProject
+     * @summary Trigger visibility for all prompts
+     * @request POST:/api/projects/{projectId}/prompts/visibility
+     * @secure
+     */
+    promptsControllerTriggerVisibilityForProject: (
+      projectId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<VisibilityResponseDto[], any>({
+        path: `/api/projects/${projectId}/prompts/visibility`,
+        method: "POST",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Triggers a visibility check for the prompt. Returns 202 Accepted.
+     *
+     * @tags Prompts
+     * @name PromptsControllerTriggerVisibility
+     * @summary Trigger visibility
+     * @request POST:/api/projects/{projectId}/prompts/{promptId}/visibility
+     * @secure
+     */
+    promptsControllerTriggerVisibility: (
+      projectId: string,
+      promptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<VisibilityResponseDto, void>({
+        path: `/api/projects/${projectId}/prompts/${promptId}/visibility`,
+        method: "POST",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Returns visibility check history for the prompt
+     *
+     * @tags Prompts
+     * @name PromptsControllerGetVisibilityHistory
+     * @summary Get visibility history
+     * @request GET:/api/projects/{projectId}/prompts/{promptId}/visibility
+     * @secure
+     */
+    promptsControllerGetVisibilityHistory: (
+      projectId: string,
+      promptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<VisibilityResponseDto[], void>({
+        path: `/api/projects/${projectId}/prompts/${promptId}/visibility`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Returns prompt detail including full visibility check history.
+     *
+     * @tags Prompts
+     * @name PromptsControllerGetPromptDetail
+     * @summary Get prompt detail
+     * @request GET:/api/projects/{projectId}/prompts/{promptId}
+     * @secure
+     */
+    promptsControllerGetPromptDetail: (
+      projectId: string,
+      promptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<PromptDetailResponseDto, void>({
+        path: `/api/projects/${projectId}/prompts/${promptId}`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * @description Creates the first project for a new user with automatic slug generation and triggers website analysis
      *
      * @tags Onboarding
@@ -1357,7 +1541,7 @@ export class Api<
      * @secure
      */
     onboardingControllerCreateAnalysis: (
-      data: CreateOnboardingProjectRequestDto,
+      data: CreateOnboardingAnalysisRequestDto,
       params: RequestParams = {},
     ) =>
       this.request<AnalysisResponseDto, any>({
