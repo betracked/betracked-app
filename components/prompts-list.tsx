@@ -177,28 +177,7 @@ function createColumns(
       ),
       enableHiding: false,
     },
-    {
-      accessorKey: "topic",
-      header: () => (
-        <span className="text-xs font-normal text-muted-foreground">
-          Topic
-        </span>
-      ),
-      cell: ({ row }) => {
-        const topic = row.original.topic;
-        if (!topic) {
-          return (
-            <span className="text-muted-foreground text-sm italic">--</span>
-          );
-        }
-        return (
-          <Badge variant="outline" className="text-muted-foreground px-1.5">
-            {String(topic)}
-          </Badge>
-        );
-      },
-      size: 150,
-    },
+
     {
       id: "score",
       header: () => (
