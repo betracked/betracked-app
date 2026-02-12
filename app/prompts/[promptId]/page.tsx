@@ -37,6 +37,7 @@ import {
   ChartTooltip,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { useProject } from "@/lib/project-context";
 import { api } from "@/lib/api-client";
 import type {
@@ -369,8 +370,8 @@ function HistoryRow({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             LLM Response
           </p>
-          <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-            {entry.llmResponse}
+          <div className="mt-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+            <MarkdownRenderer content={entry.llmResponse} className="text-sm" />
           </div>
         </div>
       )}
