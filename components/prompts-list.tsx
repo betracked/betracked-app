@@ -166,6 +166,81 @@ const statusConfig: Record<
   },
 };
 
+// ---------- Create Prompt Modal (own state so typing doesn't re-render the whole list) ----------
+function CreatePromptModal({
+  open,
+  onOpenChange,
+  onSubmit,
+  isSubmitting,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (text: string) => Promise<void>;
+  isSubmitting: boolean;
+}) {
+  const [text, setText] = React.useState("");
+  // Reset text when modal closes so next open starts fresh
+  React.useEffect(() => {
+    if (!open) setText("");
+  }, [open]);
+
+  const handleSubmit = React.useCallback(async () => {
+    const trimmed = text.trim();
+    if (!trimmed || isSubmitting) return;
+    await onSubmit(trimmed);
+    onOpenChange(false);
+  }, [text, onSubmit, isSubmitting, onOpenChange]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Prompt</DialogTitle>
+          <DialogDescription>
+            Enter the text for your new prompt. This will be used to check
+            visibility on your website.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="prompt-text">Prompt Text</Label>
+            <Textarea
+              id="prompt-text"
+              placeholder="What are the best AI-powered search solutions for e-commerce?"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="min-h-24"
+              disabled={isSubmitting}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !text.trim()}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Prompt"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------- Columns factory (needs router + trigger callback) ----------
 function createColumns(
   onNavigate: (promptId: string) => void,
@@ -370,7 +445,6 @@ export function PromptsList() {
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-  const [newPromptText, setNewPromptText] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
   const [deletePromptId, setDeletePromptId] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
@@ -465,24 +539,24 @@ export function PromptsList() {
     }
   }, [activeProject, loadPrompts]);
 
-  // ---- Create prompt ----
-  const handleCreatePrompt = React.useCallback(async () => {
-    if (!activeProject || !newPromptText.trim()) return;
-    setIsCreating(true);
-    try {
-      await api.api.promptsControllerCreatePrompt(activeProject.id, {
-        text: newPromptText.trim(),
-      });
-      toast.success("Prompt created successfully");
-      setNewPromptText("");
-      setIsCreateModalOpen(false);
-      await loadPrompts();
-    } catch {
-      toast.error("Failed to create prompt");
-    } finally {
-      setIsCreating(false);
-    }
-  }, [activeProject, newPromptText, loadPrompts]);
+  // ---- Create prompt (text passed from modal so parent doesn't re-render on keystroke) ----
+  const handleCreatePrompt = React.useCallback(
+    async (text: string) => {
+      if (!activeProject || !text.trim()) return;
+      setIsCreating(true);
+      try {
+        await api.api.promptsControllerCreatePrompt(activeProject.id, { text: text.trim() });
+        toast.success("Prompt created successfully");
+        setIsCreateModalOpen(false);
+        await loadPrompts();
+      } catch {
+        toast.error("Failed to create prompt");
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [activeProject, loadPrompts]
+  );
 
   // ---- Delete prompt ----
   const handleDeletePrompt = React.useCallback(async () => {
@@ -719,56 +793,12 @@ export function PromptsList() {
         </div>
       </div>
 
-      {/* Create Prompt Modal */}
-      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Prompt</DialogTitle>
-            <DialogDescription>
-              Enter the text for your new prompt. This will be used to check
-              visibility on your website.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="prompt-text">Prompt Text</Label>
-              <Textarea
-                id="prompt-text"
-                placeholder="What are the best AI-powered search solutions for e-commerce?"
-                value={newPromptText}
-                onChange={(e) => setNewPromptText(e.target.value)}
-                className="min-h-24"
-                disabled={isCreating}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                setNewPromptText("");
-              }}
-              disabled={isCreating}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreatePrompt}
-              disabled={isCreating || !newPromptText.trim()}
-            >
-              {isCreating ? (
-                <>
-                  <Loader className="animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Prompt"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreatePromptModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onSubmit={handleCreatePrompt}
+        isSubmitting={isCreating}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog
