@@ -1455,6 +1455,49 @@ export class Api<
       }),
 
     /**
+     * @description Deletes a prompt. Returns 204 No Content.
+     *
+     * @tags Prompts
+     * @name PromptsControllerDeletePrompt
+     * @summary Delete a prompt
+     * @request DELETE:/api/projects/{projectId}/prompts/{promptId}
+     * @secure
+     */
+    promptsControllerDeletePrompt: (
+      projectId: string,
+      promptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, void>({
+        path: `/api/projects/${projectId}/prompts/${promptId}`,
+        method: "DELETE",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * @description Returns prompt detail including full visibility check history.
+     *
+     * @tags Prompts
+     * @name PromptsControllerGetPromptDetail
+     * @summary Get prompt detail
+     * @request GET:/api/projects/{projectId}/prompts/{promptId}
+     * @secure
+     */
+    promptsControllerGetPromptDetail: (
+      projectId: string,
+      promptId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<PromptDetailResponseDto, void>({
+        path: `/api/projects/${projectId}/prompts/${promptId}`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * @description Triggers visibility checks for all prompts in the project. Returns 202 Accepted.
      *
      * @tags Prompts
@@ -1513,28 +1556,6 @@ export class Api<
     ) =>
       this.request<VisibilityResponseDto[], void>({
         path: `/api/projects/${projectId}/prompts/${promptId}/visibility`,
-        method: "GET",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Returns prompt detail including full visibility check history.
-     *
-     * @tags Prompts
-     * @name PromptsControllerGetPromptDetail
-     * @summary Get prompt detail
-     * @request GET:/api/projects/{projectId}/prompts/{promptId}
-     * @secure
-     */
-    promptsControllerGetPromptDetail: (
-      projectId: string,
-      promptId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<PromptDetailResponseDto, void>({
-        path: `/api/projects/${projectId}/prompts/${promptId}`,
         method: "GET",
         secure: true,
         format: "json",
