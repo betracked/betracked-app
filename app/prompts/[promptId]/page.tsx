@@ -371,7 +371,10 @@ function HistoryRow({
             LLM Response
           </p>
           <div className="mt-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
-            <MarkdownRenderer content={entry.llmResponse} className="text-sm" />
+            <MarkdownRenderer
+              content={entry.llmResponse ?? ""}
+              className="text-sm"
+            />
           </div>
         </div>
       )}
