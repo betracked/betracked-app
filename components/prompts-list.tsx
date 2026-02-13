@@ -34,6 +34,7 @@ import {
   Play,
   RefreshCw,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import {
   flexRender,
@@ -70,6 +71,25 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useProject } from "@/lib/project-context";
 import { api } from "@/lib/api-client";
 import type { PromptResponseDto } from "@/lib/Api";
@@ -150,6 +170,7 @@ const statusConfig: Record<
 function createColumns(
   onNavigate: (promptId: string) => void,
   onTriggerSingle: (promptId: string) => void,
+  onDelete: (promptId: string) => void,
   triggeringIds: Set<string>
 ): ColumnDef<PromptResponseDto>[] {
   return [
@@ -274,10 +295,29 @@ function createColumns(
                 <TooltipContent>View details</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-8 transition-all opacity-70 hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(promptId);
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="sr-only">Delete prompt</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete prompt</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         );
       },
-      size: 96,
+      size: 128,
     },
   ];
 }
@@ -328,6 +368,13 @@ export function PromptsList() {
     new Set()
   );
   const [isTriggeringAll, setIsTriggeringAll] = React.useState(false);
+  
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+  const [newPromptText, setNewPromptText] = React.useState("");
+  const [isCreating, setIsCreating] = React.useState(false);
+  const [deletePromptId, setDeletePromptId] = React.useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   // Sync external prompts into local state for drag reorder
   React.useEffect(() => {
@@ -398,9 +445,59 @@ export function PromptsList() {
     }
   }, [activeProject, loadProjects]);
 
+  // ---- Create prompt ----
+  const handleCreatePrompt = React.useCallback(async () => {
+    if (!activeProject || !newPromptText.trim()) return;
+    setIsCreating(true);
+    try {
+      await api.api.promptsControllerCreatePrompt(activeProject.id, {
+        text: newPromptText.trim(),
+      });
+      toast.success("Prompt created successfully");
+      setNewPromptText("");
+      setIsCreateModalOpen(false);
+      await loadProjects();
+    } catch {
+      toast.error("Failed to create prompt");
+    } finally {
+      setIsCreating(false);
+    }
+  }, [activeProject, newPromptText, loadProjects]);
+
+  // ---- Delete prompt ----
+  const handleDeletePrompt = React.useCallback(async () => {
+    if (!activeProject || !deletePromptId) return;
+    setIsDeleting(true);
+    try {
+      // Note: This endpoint doesn't exist in the API yet, but we'll call it
+      // You may need to add this endpoint to your backend
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/projects/${activeProject.id}/prompts/${deletePromptId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("betracked_access_token")}`,
+          },
+        }
+      );
+      toast.success("Prompt deleted successfully");
+      setDeletePromptId(null);
+      await loadProjects();
+    } catch {
+      toast.error("Failed to delete prompt");
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [activeProject, deletePromptId, loadProjects]);
+
   // ---- Columns with callbacks ----
   const columns = React.useMemo(
-    () => createColumns(handleNavigate, handleTriggerSingle, triggeringIds),
+    () => createColumns(
+      handleNavigate,
+      handleTriggerSingle,
+      (promptId) => setDeletePromptId(promptId),
+      triggeringIds
+    ),
     [handleNavigate, handleTriggerSingle, triggeringIds]
   );
 
@@ -461,7 +558,7 @@ export function PromptsList() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => toast.info("Add prompt not implemented yet")}
+            onClick={() => setIsCreateModalOpen(true)}
           >
             <Plus />
             <span className="hidden lg:inline">Add Prompt</span>
@@ -608,6 +705,92 @@ export function PromptsList() {
           </div>
         </div>
       </div>
+
+      {/* Create Prompt Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Prompt</DialogTitle>
+            <DialogDescription>
+              Enter the text for your new prompt. This will be used to check
+              visibility on your website.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="prompt-text">Prompt Text</Label>
+              <Textarea
+                id="prompt-text"
+                placeholder="What are the best AI-powered search solutions for e-commerce?"
+                value={newPromptText}
+                onChange={(e) => setNewPromptText(e.target.value)}
+                className="min-h-24"
+                disabled={isCreating}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setNewPromptText("");
+              }}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePrompt}
+              disabled={isCreating || !newPromptText.trim()}
+            >
+              {isCreating ? (
+                <>
+                  <Loader className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Prompt"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deletePromptId !== null}
+        onOpenChange={(open) => !open && setDeletePromptId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Prompt</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this prompt? This action cannot be
+              undone and will remove all associated visibility check data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeletePrompt}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader className="animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
