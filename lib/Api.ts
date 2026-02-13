@@ -457,6 +457,14 @@ export interface AcceptInvitationRequestDto {
   code: string;
 }
 
+export interface CreatePromptRequestDto {
+  /**
+   * Prompt text
+   * @example "What are the best AI-powered search solutions for e-commerce?"
+   */
+  text: string;
+}
+
 export interface PromptDetailResponseDto {
   /**
    * Prompt unique identifier
@@ -1419,6 +1427,30 @@ export class Api<
         body: data,
         secure: true,
         type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Creates a prompt for the project. Returns 201 Created.
+     *
+     * @tags Prompts
+     * @name PromptsControllerCreatePrompt
+     * @summary Create a prompt
+     * @request POST:/api/projects/{projectId}/prompts
+     * @secure
+     */
+    promptsControllerCreatePrompt: (
+      projectId: string,
+      data: CreatePromptRequestDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<PromptResponseDto, void>({
+        path: `/api/projects/${projectId}/prompts`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
         ...params,
       }),
 
