@@ -49,10 +49,10 @@ export function MarkdownRenderer({
         ),
         // Lists
         ul: ({ node, ...props }) => (
-          <ul className="list-disc list-inside space-y-1.5 mb-3 text-foreground/90" {...props} />
+          <ul className="list-disc list-outside space-y-2 mb-3 ml-5 text-foreground/90" {...props} />
         ),
         ol: ({ node, ...props }) => (
-          <ol className="list-decimal list-inside space-y-1.5 mb-3 text-foreground/90" {...props} />
+          <ol className="list-decimal list-outside space-y-2 mb-3 ml-5 text-foreground/90" {...props} />
         ),
         li: ({ node, ...props }) => (
           <li className="leading-relaxed" {...props} />
