@@ -153,10 +153,6 @@ export function OnboardingForm({
       // Create project via onboarding API
       const response = await api.api.onboardingControllerCreateAnalysis({
         websiteUrl,
-        prompts: prompts.map((p) => ({
-          text: p.text,
-          topic: p.topic,
-        })),
       });
 
       setAnalysisId(response.data.id);

@@ -298,22 +298,10 @@ function DraggableRow({
     <TableRow
       data-dragging={isDragging}
       ref={setNodeRef}
-      className="group relative z-0 cursor-pointer transition-colors hover:bg-muted/50 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
+      className="group relative z-0 transition-colors hover:bg-muted/50 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
       style={{
         transform: CSS.Transform.toString(transform),
         transition: transition,
-      }}
-      onClick={(e) => {
-        // Avoid navigating when clicking drag handle or action buttons
-        const target = e.target as HTMLElement;
-        if (
-          target.closest("button") ||
-          target.closest('[role="button"]') ||
-          target.closest("a")
-        ) {
-          return;
-        }
-        onNavigate(row.original.id);
       }}
     >
       {row.getVisibleCells().map((cell) => (
