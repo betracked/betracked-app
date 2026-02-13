@@ -296,12 +296,13 @@ export interface VisibilityResponseDto {
   /** Visibility score (when completed) */
   score: number | null;
   /** LLM response (when completed) */
-  llmResponse: object | null;
+  llmResponse: string | null;
   /**
    * Execution timestamp
+   * @format date-time
    * @example "2024-01-01T00:00:00Z"
    */
-  executedAt: object | null;
+  executedAt: string | null;
   /**
    * Creation timestamp
    * @format date-time
@@ -336,7 +337,7 @@ export interface PromptResponseDto {
    * Prompt topic
    * @example "marketing"
    */
-  topic: object | null;
+  topic: string | null;
   /** Latest visibility status (analyzing/completed/failed) */
   latestVisibility: VisibilityResponseDto | null;
   /**
@@ -367,7 +368,7 @@ export interface ProjectResponseDto {
    * Project description
    * @example "Main tracking and analytics workspace"
    */
-  description?: object | null;
+  description?: string | null;
   /** Prompts for the project */
   prompts: PromptResponseDto[];
   /**
@@ -476,7 +477,7 @@ export interface PromptDetailResponseDto {
    * Prompt topic
    * @example "marketing"
    */
-  topic: object | null;
+  topic: string | null;
   /** Latest visibility status (analyzing/completed/failed) */
   latestVisibility: VisibilityResponseDto | null;
   /** Full visibility check history, newest first */
@@ -535,7 +536,7 @@ export interface PromptDataResponseDto {
    * Prompt topic
    * @example "marketing"
    */
-  topic: string | null;
+  topic: string;
   /**
    * Prompt metadata
    * @example {"websiteUrl":"https://example.com"}
