@@ -277,77 +277,6 @@ export interface CreateProjectRequestDto {
   description?: string;
 }
 
-export interface VisibilityResponseDto {
-  /**
-   * Visibility unique identifier
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  id: string;
-  /**
-   * Prompt ID this visibility belongs to
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  promptId: string;
-  /**
-   * Visibility status
-   * @example "analyzing"
-   */
-  status: "analyzing" | "completed" | "failed";
-  /** Visibility score (when completed) */
-  score: number | null;
-  /** LLM response (when completed) */
-  llmResponse: string | null;
-  /**
-   * Execution timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  executedAt: string | null;
-  /**
-   * Creation timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  createdAt: string;
-  /**
-   * Last update timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  updatedAt: string;
-}
-
-export interface PromptResponseDto {
-  /**
-   * Prompt unique identifier
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  id: string;
-  /**
-   * Project ID this prompt belongs to
-   * @example "123e4567-e89b-12d3-a456-426614174000"
-   */
-  projectId: string;
-  /**
-   * Prompt text
-   * @example "Track user signups on the homepage"
-   */
-  text: string;
-  /**
-   * Prompt topic
-   * @example "marketing"
-   */
-  topic: string | null;
-  /** Latest visibility status (analyzing/completed/failed) */
-  latestVisibility: VisibilityResponseDto | null;
-  /**
-   * Creation timestamp
-   * @format date-time
-   * @example "2024-01-01T00:00:00Z"
-   */
-  createdAt: string;
-}
-
 export interface ProjectResponseDto {
   /**
    * Project unique identifier
@@ -369,8 +298,6 @@ export interface ProjectResponseDto {
    * @example "Main tracking and analytics workspace"
    */
   description?: string | null;
-  /** Prompts for the project */
-  prompts: PromptResponseDto[];
   /**
    * Creation timestamp
    * @format date-time
@@ -455,6 +382,72 @@ export interface AcceptInvitationRequestDto {
    * @example "f0b2c3d4-5e6f-7a8b-9c0d-ef1234567890"
    */
   code: string;
+}
+
+export interface VisibilityResponseDto {
+  /**
+   * Visibility unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Prompt ID this visibility belongs to
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  promptId: string;
+  /**
+   * Visibility status
+   * @example "analyzing"
+   */
+  status: "analyzing" | "completed" | "failed";
+  /** Visibility score (when completed) */
+  score: number | null;
+  /** LLM response (when completed) */
+  llmResponse: string | null;
+  /**
+   * Execution timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  executedAt: string | null;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+  /**
+   * Last update timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  updatedAt: string;
+}
+
+export interface PromptResponseShortDto {
+  /**
+   * Prompt unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Prompt text
+   * @example "Track user signups on the homepage"
+   */
+  text: string;
+  /**
+   * Prompt topic
+   * @example "marketing"
+   */
+  topic: string | null;
+  /** Latest visibility status (analyzing/completed/failed) */
+  latestVisibility: VisibilityResponseDto | null;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
 }
 
 export interface CreatePromptRequestDto {
@@ -1431,6 +1424,27 @@ export class Api<
       }),
 
     /**
+     * @description Returns all prompts for the project, each with its latest visibility check (if any).
+     *
+     * @tags Prompts
+     * @name PromptsControllerListPrompts
+     * @summary List prompts with latest visibility
+     * @request GET:/api/projects/{projectId}/prompts
+     * @secure
+     */
+    promptsControllerListPrompts: (
+      projectId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<PromptResponseShortDto[], any>({
+        path: `/api/projects/${projectId}/prompts`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * @description Creates a prompt for the project. Returns 201 Created.
      *
      * @tags Prompts
@@ -1444,7 +1458,7 @@ export class Api<
       data: CreatePromptRequestDto,
       params: RequestParams = {},
     ) =>
-      this.request<PromptResponseDto, void>({
+      this.request<PromptResponseShortDto, void>({
         path: `/api/projects/${projectId}/prompts`,
         method: "POST",
         body: data,
@@ -1535,28 +1549,6 @@ export class Api<
       this.request<VisibilityResponseDto, void>({
         path: `/api/projects/${projectId}/prompts/${promptId}/visibility`,
         method: "POST",
-        secure: true,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Returns visibility check history for the prompt
-     *
-     * @tags Prompts
-     * @name PromptsControllerGetVisibilityHistory
-     * @summary Get visibility history
-     * @request GET:/api/projects/{projectId}/prompts/{promptId}/visibility
-     * @secure
-     */
-    promptsControllerGetVisibilityHistory: (
-      projectId: string,
-      promptId: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<VisibilityResponseDto[], void>({
-        path: `/api/projects/${projectId}/prompts/${promptId}/visibility`,
-        method: "GET",
         secure: true,
         format: "json",
         ...params,

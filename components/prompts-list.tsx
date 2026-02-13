@@ -92,7 +92,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useProject } from "@/lib/project-context";
 import { api } from "@/lib/api-client";
-import type { PromptResponseDto } from "@/lib/Api";
+import type { PromptResponseShortDto } from "@/lib/Api";
 
 // ---------- Polling interval ----------
 const POLLING_INTERVAL_MS = 5000;
@@ -125,7 +125,7 @@ type PromptStatus = "done" | "in_progress" | "pending" | "failed";
  *   - latestVisibility.status === "failed"    -> "failed"
  *   - latestVisibility === null               -> "pending"
  */
-function deriveStatus(prompt: PromptResponseDto): PromptStatus {
+function deriveStatus(prompt: PromptResponseShortDto): PromptStatus {
   const vis = prompt.latestVisibility;
   if (!vis) return "pending";
   switch (vis.status) {
@@ -172,7 +172,7 @@ function createColumns(
   onTriggerSingle: (promptId: string) => void,
   onDelete: (promptId: string) => void,
   triggeringIds: Set<string>
-): ColumnDef<PromptResponseDto>[] {
+): ColumnDef<PromptResponseShortDto>[] {
   return [
     {
       id: "drag",
@@ -327,7 +327,7 @@ function DraggableRow({
   row,
   onNavigate,
 }: {
-  row: Row<PromptResponseDto>;
+  row: Row<PromptResponseShortDto>;
   onNavigate: (promptId: string) => void;
 }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
@@ -356,10 +356,9 @@ function DraggableRow({
 // ---------- Main Component ----------
 export function PromptsList() {
   const router = useRouter();
-  const { activeProject, loadProjects } = useProject();
-  const prompts = activeProject?.prompts ?? [];
+  const { activeProject } = useProject();
 
-  const [data, setData] = React.useState<PromptResponseDto[]>([]);
+  const [data, setData] = React.useState<PromptResponseShortDto[]>([]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
@@ -368,7 +367,7 @@ export function PromptsList() {
     new Set()
   );
   const [isTriggeringAll, setIsTriggeringAll] = React.useState(false);
-  
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [newPromptText, setNewPromptText] = React.useState("");
@@ -376,10 +375,31 @@ export function PromptsList() {
   const [deletePromptId, setDeletePromptId] = React.useState<string | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // Sync external prompts into local state for drag reorder
+  // ---- Fetch prompts for the active project ----
+  const projectId = activeProject?.id;
+  const loadingRef = React.useRef(false);
+
+  const loadPrompts = React.useCallback(async () => {
+    if (!projectId) {
+      setData([]);
+      return;
+    }
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const response = await api.api.promptsControllerListPrompts(projectId);
+      setData(response.data);
+    } catch (error) {
+      console.error("Failed to load prompts:", error);
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [projectId]);
+
+  // Load prompts when active project changes
   React.useEffect(() => {
-    setData(prompts);
-  }, [prompts]);
+    loadPrompts();
+  }, [loadPrompts]);
 
   // ---- Polling: auto-refresh when any prompt is "analyzing" ----
   React.useEffect(() => {
@@ -389,11 +409,11 @@ export function PromptsList() {
     if (!hasAnalyzing) return;
 
     const interval = setInterval(() => {
-      loadProjects();
+      loadPrompts();
     }, POLLING_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [data, loadProjects]);
+  }, [data, loadPrompts]);
 
   // ---- Navigation ----
   const handleNavigate = React.useCallback(
@@ -414,7 +434,7 @@ export function PromptsList() {
           promptId
         );
         toast.success("Visibility check triggered");
-        await loadProjects();
+        await loadPrompts();
       } catch {
         toast.error("Failed to trigger visibility check");
       } finally {
@@ -425,7 +445,7 @@ export function PromptsList() {
         });
       }
     },
-    [activeProject, loadProjects]
+    [activeProject, loadPrompts]
   );
 
   // ---- Trigger all visibility ----
@@ -437,13 +457,13 @@ export function PromptsList() {
         activeProject.id
       );
       toast.success("Visibility checks triggered for all prompts");
-      await loadProjects();
+      await loadPrompts();
     } catch {
       toast.error("Failed to trigger visibility checks");
     } finally {
       setIsTriggeringAll(false);
     }
-  }, [activeProject, loadProjects]);
+  }, [activeProject, loadPrompts]);
 
   // ---- Create prompt ----
   const handleCreatePrompt = React.useCallback(async () => {
@@ -456,39 +476,32 @@ export function PromptsList() {
       toast.success("Prompt created successfully");
       setNewPromptText("");
       setIsCreateModalOpen(false);
-      await loadProjects();
+      await loadPrompts();
     } catch {
       toast.error("Failed to create prompt");
     } finally {
       setIsCreating(false);
     }
-  }, [activeProject, newPromptText, loadProjects]);
+  }, [activeProject, newPromptText, loadPrompts]);
 
   // ---- Delete prompt ----
   const handleDeletePrompt = React.useCallback(async () => {
     if (!activeProject || !deletePromptId) return;
     setIsDeleting(true);
     try {
-      // Note: This endpoint doesn't exist in the API yet, but we'll call it
-      // You may need to add this endpoint to your backend
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/api/projects/${activeProject.id}/prompts/${deletePromptId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("betracked_access_token")}`,
-          },
-        }
+      await api.api.promptsControllerDeletePrompt(
+        activeProject.id,
+        deletePromptId
       );
       toast.success("Prompt deleted successfully");
       setDeletePromptId(null);
-      await loadProjects();
+      await loadPrompts();
     } catch {
       toast.error("Failed to delete prompt");
     } finally {
       setIsDeleting(false);
     }
-  }, [activeProject, deletePromptId, loadProjects]);
+  }, [activeProject, deletePromptId, loadPrompts]);
 
   // ---- Columns with callbacks ----
   const columns = React.useMemo(
