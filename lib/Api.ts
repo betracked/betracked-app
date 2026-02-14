@@ -275,6 +275,11 @@ export interface CreateProjectRequestDto {
    * @example "Main tracking and analytics workspace"
    */
   description?: string;
+  /**
+   * ISO 639-1 language code for prompt generation
+   * @example "en"
+   */
+  language: string;
 }
 
 export interface ProjectResponseDto {
@@ -293,6 +298,11 @@ export interface ProjectResponseDto {
    * @example "https://example.com"
    */
   websiteUrl: string;
+  /**
+   * ISO 639-1 language code for prompt generation
+   * @example "en"
+   */
+  language: string;
   /**
    * Project description
    * @example "Main tracking and analytics workspace"
@@ -512,6 +522,12 @@ export interface CreateOnboardingProjectRequestDto {
   websiteUrl: string;
   /** Prompts for the project */
   prompts: CreateOnboardingProjectPromptDto[];
+  /**
+   * ISO 639-1 language code for prompt generation
+   * @default "en"
+   * @example "en"
+   */
+  language: string;
 }
 
 export interface CreateOnboardingProjectResponseDto {
@@ -525,6 +541,12 @@ export interface CreateOnboardingAnalysisRequestDto {
    * @example "https://example.com"
    */
   websiteUrl: string;
+  /**
+   * ISO 639-1 language code for prompt generation
+   * @default "en"
+   * @example "en"
+   */
+  language: string;
 }
 
 export interface PromptDataResponseDto {
