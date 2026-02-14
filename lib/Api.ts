@@ -394,6 +394,28 @@ export interface AcceptInvitationRequestDto {
   code: string;
 }
 
+export interface CompetitorVisibilityScoreDto {
+  /**
+   * Competitor unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  competitorId: string;
+  /**
+   * Competitor name
+   * @example "Acme Corp"
+   */
+  competitorName: string;
+  /**
+   * Visibility score (0-100)
+   * @example 70
+   */
+  score: number;
+  /** Whether competitor was mentioned in the LLM response text */
+  mentionedInText: boolean;
+  /** Whether competitor was found in citation URLs */
+  mentionedInCitations: boolean;
+}
+
 export interface VisibilityResponseDto {
   /**
    * Visibility unique identifier
@@ -432,6 +454,8 @@ export interface VisibilityResponseDto {
    * @example "2024-01-01T00:00:00Z"
    */
   updatedAt: string;
+  /** Competitor visibility scores */
+  competitorScores: CompetitorVisibilityScoreDto[];
 }
 
 export interface PromptResponseShortDto {
@@ -501,6 +525,43 @@ export interface PromptDetailResponseDto {
   createdAt: string;
 }
 
+export interface CompetitorResponseDto {
+  /**
+   * Competitor unique identifier
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  id: string;
+  /**
+   * Competitor name
+   * @example "Acme Corp"
+   */
+  name: string;
+  /**
+   * Competitor website URL
+   * @example "https://acme.com"
+   */
+  websiteUrl: string;
+  /**
+   * Creation timestamp
+   * @format date-time
+   * @example "2024-01-01T00:00:00Z"
+   */
+  createdAt: string;
+}
+
+export interface CreateCompetitorRequestDto {
+  /**
+   * Competitor name
+   * @example "Acme Corp"
+   */
+  name: string;
+  /**
+   * Competitor website URL
+   * @example "https://acme.com"
+   */
+  websiteUrl: string;
+}
+
 export interface CreateOnboardingProjectPromptDto {
   /**
    * Prompt text
@@ -514,12 +575,30 @@ export interface CreateOnboardingProjectPromptDto {
   topic?: string | null;
 }
 
+export interface CreateOnboardingCompetitorDto {
+  /**
+   * Competitor name
+   * @example "Acme Corp"
+   */
+  name: string;
+  /**
+   * Competitor website URL
+   * @example "https://acme.com"
+   */
+  websiteUrl: string;
+}
+
 export interface CreateOnboardingProjectRequestDto {
   /**
    * Website URL for analysis
    * @example "https://example.com"
    */
   websiteUrl: string;
+  /**
+   * Project name
+   * @example "ACME Platform"
+   */
+  name: string;
   /** Prompts for the project */
   prompts: CreateOnboardingProjectPromptDto[];
   /**
@@ -528,6 +607,8 @@ export interface CreateOnboardingProjectRequestDto {
    * @example "en"
    */
   language: string;
+  /** Competitors to track */
+  competitors?: CreateOnboardingCompetitorDto[];
 }
 
 export interface CreateOnboardingProjectResponseDto {
@@ -573,6 +654,11 @@ export interface AnalysisResponseDto {
    * @example "123e4567-e89b-12d3-a456-426614174000"
    */
   id: string;
+  /**
+   * Analysis website name
+   * @example "ACME Platform"
+   */
+  name: string | null;
   /**
    * Analysis status
    * @example "completed"
@@ -1573,6 +1659,72 @@ export class Api<
         method: "POST",
         secure: true,
         format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Returns all competitors for the project.
+     *
+     * @tags Competitors
+     * @name CompetitorsControllerListCompetitors
+     * @summary List competitors
+     * @request GET:/api/projects/{projectId}/competitors
+     * @secure
+     */
+    competitorsControllerListCompetitors: (
+      projectId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<CompetitorResponseDto[], any>({
+        path: `/api/projects/${projectId}/competitors`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Adds a competitor to the project.
+     *
+     * @tags Competitors
+     * @name CompetitorsControllerCreateCompetitor
+     * @summary Add competitor
+     * @request POST:/api/projects/{projectId}/competitors
+     * @secure
+     */
+    competitorsControllerCreateCompetitor: (
+      projectId: string,
+      data: CreateCompetitorRequestDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<CompetitorResponseDto, void>({
+        path: `/api/projects/${projectId}/competitors`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Soft-deletes a competitor. Historical visibility data is preserved.
+     *
+     * @tags Competitors
+     * @name CompetitorsControllerDeleteCompetitor
+     * @summary Delete competitor
+     * @request DELETE:/api/projects/{projectId}/competitors/{competitorId}
+     * @secure
+     */
+    competitorsControllerDeleteCompetitor: (
+      projectId: string,
+      competitorId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, void>({
+        path: `/api/projects/${projectId}/competitors/${competitorId}`,
+        method: "DELETE",
+        secure: true,
         ...params,
       }),
 

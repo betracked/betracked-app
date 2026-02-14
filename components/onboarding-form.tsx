@@ -266,8 +266,14 @@ export function OnboardingForm({
       return;
     }
 
+    const projectName =
+      analysisData?.name ??
+      new URL(buildUrl(websiteUrl)).hostname ??
+      "My Project";
+
     await api.api.onboardingControllerCreateProject({
       websiteUrl: buildUrl(websiteUrl),
+      name: projectName,
       language,
       prompts: selectedPrompts.map((p) => ({
         text: p.text,

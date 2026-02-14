@@ -86,9 +86,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const createProject = useCallback(
     async (websiteUrl: string, promptTexts: string[]) => {
       try {
-        // Call the onboarding API endpoint
+        const name =
+          (() => {
+            try {
+              return new URL(websiteUrl).hostname;
+            } catch {
+              return "My Project";
+            }
+          })() ?? "My Project";
+
         await api.api.onboardingControllerCreateProject({
           websiteUrl,
+          name,
+          language: "en",
           prompts: promptTexts.map((text) => ({
             text,
           })),
