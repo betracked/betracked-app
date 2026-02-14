@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Globe,
   Sparkles,
+  Languages,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,13 +27,44 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
 import { OnboardingLoading } from "@/components/onboarding-loading";
 import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
+import { LanguageCombobox } from "@/components/language-combobox";
 import type { AnalysisResponseDto } from "@/lib/Api";
+import { DEFAULT_LANGUAGE } from "@/lib/languages";
+
+// Helper to build full URL from domain input
+function buildUrl(domain: string): string {
+  const trimmed = domain.trim();
+  if (!trimmed) return "";
+  // Strip any protocol the user may have pasted in
+  const cleaned = trimmed.replace(/^https?:\/\//, "");
+  return `https://${cleaned}`;
+}
 
 // Validation schema
 const urlSchema = z.object({
-  websiteUrl: z.string().url("Please enter a valid URL"),
+  websiteUrl: z
+    .string()
+    .min(1, "Please enter your website domain")
+    .refine(
+      (val) => {
+        try {
+          const url = new URL(buildUrl(val));
+          return !!url.hostname && url.hostname.includes(".");
+        } catch {
+          return false;
+        }
+      },
+      { message: "Please enter a valid domain (e.g. example.com)" }
+    ),
+  language: z.string().min(2, "Please select a language"),
 });
 
 type OnboardingFormData = z.infer<typeof urlSchema>;
@@ -48,6 +80,7 @@ export function OnboardingForm({
 
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
   const [prompts, setPrompts] = useState<
     {
       text: string;
@@ -135,7 +168,7 @@ export function OnboardingForm({
     setErrors({});
     setAnalysisError(null);
 
-    const data = { websiteUrl };
+    const data = { websiteUrl, language };
     const result = urlSchema.safeParse(data);
     if (!result.success) {
       const fieldErrors: Partial<OnboardingFormData> = {};
@@ -148,11 +181,13 @@ export function OnboardingForm({
     }
 
     setIsLoading(true);
+    const fullUrl = buildUrl(websiteUrl);
 
     try {
       // Create project via onboarding API
       const response = await api.api.onboardingControllerCreateAnalysis({
-        websiteUrl,
+        websiteUrl: fullUrl,
+        language,
       });
 
       setAnalysisId(response.data.id);
@@ -232,7 +267,8 @@ export function OnboardingForm({
     }
 
     await api.api.onboardingControllerCreateProject({
-      websiteUrl,
+      websiteUrl: buildUrl(websiteUrl),
+      language,
       prompts: selectedPrompts.map((p) => ({
         text: p.text,
         topic: p.topic,
@@ -296,22 +332,54 @@ export function OnboardingForm({
 
             <Field data-invalid={!!errors.websiteUrl}>
               <FieldLabel htmlFor="websiteUrl">Website URL</FieldLabel>
-              <Input
-                id="websiteUrl"
-                name="websiteUrl"
-                type="url"
-                placeholder="https://example.com"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
-                autoComplete="url"
-                disabled={isLoading}
-                required
-              />
+              <InputGroup>
+                <InputGroupAddon align="inline-start">
+                  <InputGroupText className="text-muted-foreground select-none">
+                    https://
+                  </InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="websiteUrl"
+                  name="websiteUrl"
+                  type="text"
+                  placeholder="example.com"
+                  value={websiteUrl}
+                  onChange={(e) =>
+                    setWebsiteUrl(
+                      e.target.value.replace(/^https?:\/\//, "")
+                    )
+                  }
+                  autoComplete="url"
+                  disabled={isLoading}
+                  required
+                />
+              </InputGroup>
               {errors.websiteUrl && (
                 <FieldError>{errors.websiteUrl}</FieldError>
               )}
               <FieldDescription>
                 We&apos;ll scan your site to generate relevant analysis prompts
+              </FieldDescription>
+            </Field>
+
+            <Field data-invalid={!!errors.language}>
+              <FieldLabel htmlFor="language">
+                <div className="flex items-center gap-2">
+                  <Languages className="size-4" />
+                  <span>Language</span>
+                </div>
+              </FieldLabel>
+              <LanguageCombobox
+                id="language"
+                value={language}
+                onValueChange={(val) => setLanguage(val || DEFAULT_LANGUAGE)}
+                disabled={isLoading}
+                aria-invalid={!!errors.language}
+              />
+              {errors.language && <FieldError>{errors.language}</FieldError>}
+              <FieldDescription>
+                Your language preference helps us generate more relevant and
+                accurate prompt suggestions tailored to your content
               </FieldDescription>
             </Field>
 
