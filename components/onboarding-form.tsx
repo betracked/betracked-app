@@ -27,18 +27,11 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxEmpty,
-} from "@/components/ui/combobox";
 import { OnboardingLoading } from "@/components/onboarding-loading";
 import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
+import { LanguageCombobox } from "@/components/language-combobox";
 import type { AnalysisResponseDto } from "@/lib/Api";
-import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
+import { DEFAULT_LANGUAGE } from "@/lib/languages";
 
 // Validation schema
 const urlSchema = z.object({
@@ -336,42 +329,13 @@ export function OnboardingForm({
                   <span>Language</span>
                 </div>
               </FieldLabel>
-              <Combobox
+              <LanguageCombobox
+                id="language"
                 value={language}
-                onValueChange={(value) => setLanguage(value || DEFAULT_LANGUAGE)}
-                items={LANGUAGES}
-                itemToString={(item) => item?.name || ""}
-                itemToValue={(item) => item?.code || ""}
-              >
-                <ComboboxInput
-                  id="language"
-                  placeholder="Search languages..."
-                  showTrigger
-                  showClear
-                  disabled={isLoading}
-                  aria-invalid={!!errors.language}
-                />
-                <ComboboxContent>
-                  <ComboboxList>
-                    {LANGUAGES.map((lang) => (
-                      <ComboboxItem key={lang.code} value={lang.code}>
-                        <span className="flex items-center gap-2">
-                          <span className="text-lg leading-none">{lang.flag}</span>
-                          <span className="flex flex-col gap-0.5">
-                            <span className="text-sm">{lang.name}</span>
-                            {lang.nativeName && (
-                              <span className="text-muted-foreground text-xs">
-                                {lang.nativeName}
-                              </span>
-                            )}
-                          </span>
-                        </span>
-                      </ComboboxItem>
-                    ))}
-                  </ComboboxList>
-                  <ComboboxEmpty>No language found</ComboboxEmpty>
-                </ComboboxContent>
-              </Combobox>
+                onValueChange={(val) => setLanguage(val || DEFAULT_LANGUAGE)}
+                disabled={isLoading}
+                aria-invalid={!!errors.language}
+              />
               {errors.language && <FieldError>{errors.language}</FieldError>}
               <FieldDescription>
                 Your language preference helps us generate more relevant and
