@@ -28,12 +28,13 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxInput,
+  ComboboxContent,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { OnboardingLoading } from "@/components/onboarding-loading";
 import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
 import type { AnalysisResponseDto } from "@/lib/Api";
@@ -335,30 +336,42 @@ export function OnboardingForm({
                   <span>Language</span>
                 </div>
               </FieldLabel>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger
+              <Combobox
+                value={language}
+                onValueChange={(value) => setLanguage(value || DEFAULT_LANGUAGE)}
+                items={LANGUAGES}
+                itemToString={(item) => item?.name || ""}
+                itemToValue={(item) => item?.code || ""}
+              >
+                <ComboboxInput
                   id="language"
-                  className="w-full"
-                  aria-invalid={!!errors.language}
+                  placeholder="Search languages..."
+                  showTrigger
+                  showClear
                   disabled={isLoading}
-                >
-                  <SelectValue placeholder="Select a language" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.code} value={lang.code}>
-                      <span className="flex items-center gap-2">
-                        <span>{lang.name}</span>
-                        {lang.nativeName && (
-                          <span className="text-muted-foreground text-xs">
-                            ({lang.nativeName})
+                  aria-invalid={!!errors.language}
+                />
+                <ComboboxContent>
+                  <ComboboxList>
+                    {LANGUAGES.map((lang) => (
+                      <ComboboxItem key={lang.code} value={lang.code}>
+                        <span className="flex items-center gap-2">
+                          <span className="text-lg leading-none">{lang.flag}</span>
+                          <span className="flex flex-col gap-0.5">
+                            <span className="text-sm">{lang.name}</span>
+                            {lang.nativeName && (
+                              <span className="text-muted-foreground text-xs">
+                                {lang.nativeName}
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                        </span>
+                      </ComboboxItem>
+                    ))}
+                  </ComboboxList>
+                  <ComboboxEmpty>No language found</ComboboxEmpty>
+                </ComboboxContent>
+              </Combobox>
               {errors.language && <FieldError>{errors.language}</FieldError>}
               <FieldDescription>
                 Your language preference helps us generate more relevant and
