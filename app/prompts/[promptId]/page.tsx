@@ -22,6 +22,9 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Check,
+  X,
+  Swords,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +46,7 @@ import { api } from "@/lib/api-client";
 import type {
   PromptDetailResponseDto,
   VisibilityResponseDto,
+  CompetitorVisibilityScoreDto,
 } from "@/lib/Api";
 import { cn } from "@/lib/utils";
 
@@ -292,6 +296,92 @@ function ScoreChart({
   );
 }
 
+// ---------- Competitor score color ----------
+function scoreColorClass(score: number) {
+  if (score >= 70) return "text-green-600 dark:text-green-400";
+  if (score >= 40) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+function scoreBgClass(score: number) {
+  if (score >= 70) return "bg-green-500/10";
+  if (score >= 40) return "bg-yellow-500/10";
+  return "bg-red-500/10";
+}
+
+// ---------- Competitor Scores Section ----------
+function CompetitorScoresSection({
+  scores,
+}: {
+  scores: CompetitorVisibilityScoreDto[];
+}) {
+  if (!scores || scores.length === 0) return null;
+
+  return (
+    <div className="border-t border-border px-4 py-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Swords className="size-3.5 text-muted-foreground" />
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Competitor Scores
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        {scores.map((cs) => (
+          <div
+            key={cs.competitorId}
+            className="flex items-center gap-3 rounded-md bg-muted/30 px-3 py-2"
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="text-sm font-medium text-foreground truncate">
+                {cs.competitorName}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="gap-1 text-xs"
+              >
+                {cs.mentionedInText ? (
+                  <Check className="size-3 text-green-500" />
+                ) : (
+                  <X className="size-3 text-muted-foreground" />
+                )}
+                Text
+              </Badge>
+              <Badge
+                variant="outline"
+                className="gap-1 text-xs"
+              >
+                {cs.mentionedInCitations ? (
+                  <Check className="size-3 text-green-500" />
+                ) : (
+                  <X className="size-3 text-muted-foreground" />
+                )}
+                Citations
+              </Badge>
+              <div
+                className={cn(
+                  "flex items-center justify-center rounded-md px-2.5 py-1 min-w-[3rem]",
+                  scoreBgClass(cs.score)
+                )}
+              >
+                <span
+                  className={cn(
+                    "text-sm font-semibold tabular-nums",
+                    scoreColorClass(cs.score)
+                  )}
+                >
+                  {cs.score}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------- Expandable History Row ----------
 function HistoryRow({
   entry,
@@ -378,6 +468,13 @@ function HistoryRow({
           </div>
         </div>
       )}
+
+      {/* Competitor scores */}
+      {isExpanded &&
+        entry.status === "completed" &&
+        entry.competitorScores?.length > 0 && (
+          <CompetitorScoresSection scores={entry.competitorScores} />
+        )}
     </div>
   );
 }
@@ -592,6 +689,37 @@ export default function PromptDetailPage() {
                       </span>
                     </Button>
                   </CardHeader>
+                  {prompt.latestVisibility?.competitorScores &&
+                    prompt.latestVisibility.competitorScores.length > 0 && (
+                      <CardContent className="pt-0 pb-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-muted-foreground mr-1">
+                            Competitors:
+                          </span>
+                          {prompt.latestVisibility.competitorScores.map(
+                            (cs) => (
+                              <Badge
+                                key={cs.competitorId}
+                                variant="outline"
+                                className="gap-1.5 tabular-nums"
+                              >
+                                <span className="text-foreground">
+                                  {cs.competitorName}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "font-semibold",
+                                    scoreColorClass(cs.score)
+                                  )}
+                                >
+                                  {cs.score}
+                                </span>
+                              </Badge>
+                            )
+                          )}
+                        </div>
+                      </CardContent>
+                    )}
                 </Card>
 
                 {/* Score Progression Chart */}

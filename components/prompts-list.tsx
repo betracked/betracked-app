@@ -297,6 +297,51 @@ function createColumns(
       size: 80,
     },
     {
+      id: "competitors",
+      header: () => (
+        <span className="text-xs font-normal text-muted-foreground">
+          Competitors
+        </span>
+      ),
+      cell: ({ row }) => {
+        const scores = row.original.latestVisibility?.competitorScores;
+        if (!scores || scores.length === 0) {
+          return (
+            <span className="text-muted-foreground text-sm italic">--</span>
+          );
+        }
+        return (
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-1">
+              {scores.map((cs) => {
+                const colorClass =
+                  cs.score >= 70
+                    ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20"
+                    : cs.score >= 40
+                      ? "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/20"
+                      : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20";
+                return (
+                  <Tooltip key={cs.competitorId}>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-semibold tabular-nums ${colorClass}`}
+                      >
+                        {cs.score}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span>{cs.competitorName}: {cs.score}/100</span>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </TooltipProvider>
+        );
+      },
+      size: 150,
+    },
+    {
       id: "status",
       header: () => (
         <span className="text-xs font-normal text-muted-foreground">

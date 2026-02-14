@@ -12,6 +12,8 @@ import {
   Globe,
   Sparkles,
   Languages,
+  Swords,
+  X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -68,7 +70,28 @@ const urlSchema = z.object({
 });
 
 type OnboardingFormData = z.infer<typeof urlSchema>;
-type Step = "url" | "loading" | "prompts";
+type Step = "url" | "loading" | "prompts" | "competitors";
+
+const MAX_COMPETITORS = 5;
+
+// Competitor validation
+const competitorUrlSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  websiteUrl: z
+    .string()
+    .min(1, "Website URL is required")
+    .refine(
+      (val) => {
+        try {
+          const url = new URL(buildUrl(val));
+          return !!url.hostname && url.hostname.includes(".");
+        } catch {
+          return false;
+        }
+      },
+      { message: "Please enter a valid domain (e.g. competitor.com)" }
+    ),
+});
 
 export function OnboardingForm({
   className,
@@ -90,6 +113,15 @@ export function OnboardingForm({
     }[]
   >([]);
   const [customPrompt, setCustomPrompt] = useState("");
+  const [competitors, setCompetitors] = useState<
+    { name: string; websiteUrl: string }[]
+  >([]);
+  const [competitorName, setCompetitorName] = useState("");
+  const [competitorUrl, setCompetitorUrl] = useState("");
+  const [competitorErrors, setCompetitorErrors] = useState<{
+    name?: string;
+    websiteUrl?: string;
+  }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<OnboardingFormData>>({});
 
@@ -253,8 +285,61 @@ export function OnboardingForm({
     setCustomPrompt("");
   };
 
+  // Add competitor
+  const addCompetitor = () => {
+    setCompetitorErrors({});
+
+    const result = competitorUrlSchema.safeParse({
+      name: competitorName,
+      websiteUrl: competitorUrl,
+    });
+
+    if (!result.success) {
+      const fieldErrors: { name?: string; websiteUrl?: string } = {};
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as "name" | "websiteUrl";
+        fieldErrors[field] = issue.message;
+      });
+      setCompetitorErrors(fieldErrors);
+      return;
+    }
+
+    const fullUrl = buildUrl(competitorUrl);
+    if (
+      competitors.some(
+        (c) => c.websiteUrl.toLowerCase() === fullUrl.toLowerCase()
+      )
+    ) {
+      toast.error("This competitor is already added");
+      return;
+    }
+
+    setCompetitors((prev) => [
+      ...prev,
+      { name: competitorName.trim(), websiteUrl: fullUrl },
+    ]);
+    setCompetitorName("");
+    setCompetitorUrl("");
+    setCompetitorErrors({});
+  };
+
+  // Remove competitor
+  const removeCompetitor = (index: number) => {
+    setCompetitors((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Selected count
   const selectedCount = prompts.filter((p) => p.selected).length;
+
+  // Handle moving from prompts to competitors step
+  const handlePromptsNext = () => {
+    const selectedPrompts = prompts.filter((p) => p.selected);
+    if (selectedPrompts.length === 0) {
+      toast.error("Please select at least one prompt");
+      return;
+    }
+    setStep("competitors");
+  };
 
   // Handle final confirmation
   const handleConfirm = async () => {
@@ -266,34 +351,53 @@ export function OnboardingForm({
       return;
     }
 
-    const projectName =
-      analysisData?.name ??
-      new URL(buildUrl(websiteUrl)).hostname ??
-      "My Project";
+    setIsLoading(true);
 
-    await api.api.onboardingControllerCreateProject({
-      websiteUrl: buildUrl(websiteUrl),
-      name: projectName,
-      language,
-      prompts: selectedPrompts.map((p) => ({
-        text: p.text,
-        topic: p.topic,
-      })),
-    });
+    try {
+      const projectName =
+        analysisData?.name ??
+        new URL(buildUrl(websiteUrl)).hostname ??
+        "My Project";
 
-    // Refetch user (needsOnboarding false) and projects so / has fresh data
-    await refreshUser();
-    await loadProjects();
-    toast.success("Analysis complete! Redirecting...");
-    router.push("/");
+      await api.api.onboardingControllerCreateProject({
+        websiteUrl: buildUrl(websiteUrl),
+        name: projectName,
+        language,
+        prompts: selectedPrompts.map((p) => ({
+          text: p.text,
+          topic: p.topic,
+        })),
+        competitors:
+          competitors.length > 0
+            ? competitors.map((c) => ({
+                name: c.name,
+                websiteUrl: c.websiteUrl,
+              }))
+            : undefined,
+      });
+
+      // Refetch user (needsOnboarding false) and projects so / has fresh data
+      await refreshUser();
+      await loadProjects();
+      toast.success("Analysis complete! Redirecting...");
+      router.push("/");
+    } catch (error) {
+      const apiError = error as { error?: { message?: string } };
+      const message =
+        apiError?.error?.message ||
+        "Failed to create project. Please try again.";
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       {/* Step indicator */}
       <div className="flex items-center justify-center gap-2">
-        {["url", "loading", "prompts"].map((s, i) => {
-          const stepIndex = ["url", "loading", "prompts"].indexOf(step);
+        {["url", "loading", "prompts", "competitors"].map((s, i, arr) => {
+          const stepIndex = ["url", "loading", "prompts", "competitors"].indexOf(step);
           const isActive = i <= stepIndex;
           return (
             <div key={s} className="flex items-center gap-2">
@@ -303,7 +407,7 @@ export function OnboardingForm({
                   isActive ? "bg-primary scale-100" : "bg-border scale-75"
                 )}
               />
-              {i < 2 && (
+              {i < arr.length - 1 && (
                 <div
                   className={cn(
                     "h-px w-8 transition-all duration-500",
@@ -516,18 +620,180 @@ export function OnboardingForm({
             </Button>
             <Button
               type="button"
-              onClick={handleConfirm}
+              onClick={handlePromptsNext}
               disabled={isLoading || selectedCount === 0}
+              className="flex-1 gap-2"
+            >
+              Continue
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Competitors Step */}
+      {step === "competitors" && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col gap-5">
+          {/* Header */}
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 mb-2">
+              <Swords className="size-6 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground text-balance">
+              Track your competitors
+            </h1>
+            <p className="text-muted-foreground text-sm text-balance max-w-sm">
+              Add up to {MAX_COMPETITORS} competitors to compare your visibility
+              scores against. You can always add more later.
+            </p>
+          </div>
+
+          {/* Competitor list */}
+          {competitors.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {competitors.map((competitor, index) => (
+                <div
+                  key={`${competitor.websiteUrl}-${index}`}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3"
+                >
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {competitor.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {competitor.websiteUrl}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 size-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeCompetitor(index)}
+                  >
+                    <X className="size-4" />
+                    <span className="sr-only">Remove {competitor.name}</span>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add competitor form */}
+          {competitors.length < MAX_COMPETITORS ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4">
+              <p className="text-sm font-medium text-foreground">
+                Add a competitor
+              </p>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <Input
+                    placeholder="Competitor name (e.g. Acme Corp)"
+                    value={competitorName}
+                    onChange={(e) => setCompetitorName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCompetitor();
+                      }
+                    }}
+                  />
+                  {competitorErrors.name && (
+                    <p className="text-xs text-destructive">
+                      {competitorErrors.name}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex flex-col gap-1 flex-1">
+                    <InputGroup>
+                      <InputGroupAddon align="inline-start">
+                        <InputGroupText className="text-muted-foreground select-none">
+                          https://
+                        </InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        placeholder="competitor.com"
+                        value={competitorUrl}
+                        onChange={(e) =>
+                          setCompetitorUrl(
+                            e.target.value.replace(/^https?:\/\//, "")
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCompetitor();
+                          }
+                        }}
+                      />
+                    </InputGroup>
+                    {competitorErrors.websiteUrl && (
+                      <p className="text-xs text-destructive">
+                        {competitorErrors.websiteUrl}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={addCompetitor}
+                    disabled={!competitorName.trim() || !competitorUrl.trim()}
+                    className="shrink-0"
+                  >
+                    <Plus className="size-4" />
+                    <span className="sr-only">Add competitor</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-muted/50 px-4 py-2.5 text-center">
+              <span className="text-sm text-muted-foreground">
+                Maximum of {MAX_COMPETITORS} competitors reached
+              </span>
+            </div>
+          )}
+
+          {/* Counter */}
+          <div className="flex items-center justify-center">
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {competitors.length} / {MAX_COMPETITORS} competitors added
+            </span>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep("prompts")}
+              disabled={isLoading}
+              className="flex-1 gap-2"
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isLoading}
               className="flex-1 gap-2"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Starting...
+                  Creating project...
+                </>
+              ) : competitors.length === 0 ? (
+                <>
+                  Skip & Finish
+                  <ArrowRight className="size-4" />
                 </>
               ) : (
                 <>
-                  Continue
+                  Finish
                   <ArrowRight className="size-4" />
                 </>
               )}
