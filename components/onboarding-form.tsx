@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Globe,
   Sparkles,
+  Languages,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -26,13 +27,22 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { OnboardingLoading } from "@/components/onboarding-loading";
 import { OnboardingPromptCard } from "@/components/onboarding-prompt-card";
 import type { AnalysisResponseDto } from "@/lib/Api";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 
 // Validation schema
 const urlSchema = z.object({
   websiteUrl: z.string().url("Please enter a valid URL"),
+  language: z.string().min(2, "Please select a language"),
 });
 
 type OnboardingFormData = z.infer<typeof urlSchema>;
@@ -48,6 +58,7 @@ export function OnboardingForm({
 
   const [step, setStep] = useState<Step>("url");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
   const [prompts, setPrompts] = useState<
     {
       text: string;
@@ -135,7 +146,7 @@ export function OnboardingForm({
     setErrors({});
     setAnalysisError(null);
 
-    const data = { websiteUrl };
+    const data = { websiteUrl, language };
     const result = urlSchema.safeParse(data);
     if (!result.success) {
       const fieldErrors: Partial<OnboardingFormData> = {};
@@ -153,6 +164,7 @@ export function OnboardingForm({
       // Create project via onboarding API
       const response = await api.api.onboardingControllerCreateAnalysis({
         websiteUrl,
+        language,
       });
 
       setAnalysisId(response.data.id);
@@ -233,6 +245,7 @@ export function OnboardingForm({
 
     await api.api.onboardingControllerCreateProject({
       websiteUrl,
+      language,
       prompts: selectedPrompts.map((p) => ({
         text: p.text,
         topic: p.topic,
@@ -312,6 +325,44 @@ export function OnboardingForm({
               )}
               <FieldDescription>
                 We&apos;ll scan your site to generate relevant analysis prompts
+              </FieldDescription>
+            </Field>
+
+            <Field data-invalid={!!errors.language}>
+              <FieldLabel htmlFor="language">
+                <div className="flex items-center gap-2">
+                  <Languages className="size-4" />
+                  <span>Language</span>
+                </div>
+              </FieldLabel>
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger
+                  id="language"
+                  className="w-full"
+                  aria-invalid={!!errors.language}
+                  disabled={isLoading}
+                >
+                  <SelectValue placeholder="Select a language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      <span className="flex items-center gap-2">
+                        <span>{lang.name}</span>
+                        {lang.nativeName && (
+                          <span className="text-muted-foreground text-xs">
+                            ({lang.nativeName})
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.language && <FieldError>{errors.language}</FieldError>}
+              <FieldDescription>
+                Your language preference helps us generate more relevant and
+                accurate prompt suggestions tailored to your content
               </FieldDescription>
             </Field>
 
